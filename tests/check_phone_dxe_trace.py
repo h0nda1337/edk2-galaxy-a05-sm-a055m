@@ -1,4 +1,4 @@
-"""Verify that the A05 diagnostic reaches its DXE constructor under QEMU."""
+"""Verify that EDK II dispatches the A05 diagnostic DXE driver in QEMU."""
 
 import argparse
 from pathlib import Path
@@ -8,7 +8,7 @@ import tempfile
 
 MARKER = re.compile(
     r"^0x[0-9a-f]+:\s+d2940bbf\b[^\n]*\n"
-    r"0x[0-9a-f]+:\s+f2ba1c1f\b", re.I | re.M,
+    r"0x[0-9a-f]+:\s+f2ba1c3f\b", re.I | re.M,
 )
 
 

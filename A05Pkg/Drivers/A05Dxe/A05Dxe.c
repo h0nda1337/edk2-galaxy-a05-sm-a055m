@@ -13,7 +13,7 @@ A05DxeEntry (
   IN EFI_SYSTEM_TABLE  *SystemTable
   )
 {
-  STATIC UINT8  Message[] = "A05 EDK II DXE reached\r\n";
+  STATIC UINT8  Message[] = "A05 EDK II DXE driver dispatched\r\n";
   VOID                         *Hob;
   CONST A05_MEMORY_RANGE        *Range;
   volatile UINT32              *Pixel;
@@ -22,7 +22,7 @@ A05DxeEntry (
   (VOID)ImageHandle;
   (VOID)SystemTable;
   // No-op signature for instruction tracing on machines without the UART.
-  __asm__ __volatile__ ("movz xzr, #0xa05d\n\tmovk xzr, #0xd0e0, lsl #16");
+  __asm__ __volatile__ ("movz xzr, #0xa05d\n\tmovk xzr, #0xd0e1, lsl #16");
   Hob = GetFirstGuidHob (&gA05DiagnosticFramebufferGuid);
   if ((Hob != NULL) && (GET_GUID_HOB_DATA_SIZE (Hob) == sizeof (A05_MEMORY_RANGE))) {
     Range = GET_GUID_HOB_DATA (Hob);

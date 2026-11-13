@@ -2,9 +2,8 @@
   INF_VERSION = 0x0001001B
   BASE_NAME = A05Dxe
   FILE_GUID = 56A9C7B0-CBF5-4D2B-AB37-FB62E0FE86B8
-  MODULE_TYPE = DXE_CORE
-  LIBRARY_CLASS = NULL|DXE_CORE
-  CONSTRUCTOR = A05DxeEntry
+  MODULE_TYPE = DXE_DRIVER
+  ENTRY_POINT = A05DxeEntry
 
 [Sources]
   A05Dxe.c
@@ -17,6 +16,14 @@
   BaseLib
   HobLib
   SerialPortLib
+  UefiDriverEntryPoint
+
+[Protocols]
+  gEfiCpuArchProtocolGuid
+  gEfiPcdProtocolGuid
 
 [Guids]
   gA05DiagnosticFramebufferGuid
+
+[Depex]
+  gEfiCpuArchProtocolGuid AND gEfiPcdProtocolGuid

@@ -152,14 +152,12 @@ def main():
                          "  DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf")
         shared = rewrite(shared, "  SerialPortLib|ArmVirtPkg/Library/FdtPL011SerialPortLib/FdtPL011SerialPortLib.inf",
                          "  SerialPortLib|MdePkg/Library/BaseSerialPortLibNull/BaseSerialPortLibNull.inf")
-        core = "  MdeModulePkg/Core/Dxe/DxeMain.inf"
-        # The core runs the diagnostic constructor before driver dispatch.
-        shared = rewrite(shared, core + " {\n    <LibraryClasses>\n",
-                          core + " {\n"
+        shared = rewrite(shared, "[Components.common]\n",
+                          "[Components.common]\n"
+                          "  A05Pkg/Drivers/A05Dxe/A05Dxe.inf {\n"
                           "    <LibraryClasses>\n"
-                          "      DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf\n"
                           f"      SerialPortLib|{serial_lib}\n"
-                          "      NULL|A05Pkg/Drivers/A05Dxe/A05Dxe.inf\n")
+                          "  }\n")
         shared_dsc.write_text(shared, encoding="utf-8")
         content = rewrite(content, "  ArmVirtPkg/PrePi/ArmVirtPrePiUniCoreRelocatable.inf {\n"
                                    "    <LibraryClasses>\n",
@@ -188,7 +186,9 @@ def main():
         fv_main.write_text(
             headers + "  INF MdeModulePkg/Core/Dxe/DxeMain.inf\n"
                       "  INF MdeModulePkg/Universal/PCD/Dxe/Pcd.inf\n"
+                      "  INF MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf\n"
                       "  INF ArmPkg/Drivers/CpuDxe/CpuDxe.inf\n"
+                      "  INF A05Pkg/Drivers/A05Dxe/A05Dxe.inf\n"
                       "  INF MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf\n",
             encoding="utf-8",
         )
