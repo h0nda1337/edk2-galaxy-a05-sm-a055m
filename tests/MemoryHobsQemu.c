@@ -1,7 +1,9 @@
 #include <PiPei.h>
 #include <Library/A05EarlyMemoryLib.h>
+#include <Library/ArmMmuLib.h>
 #include <Library/DebugLib.h>
 #include <Library/HobLib.h>
+#include <Library/MemoryAllocationLib.h>
 
 #define RAM_ATTRIBUTES  (EFI_RESOURCE_ATTRIBUTE_PRESENT | EFI_RESOURCE_ATTRIBUTE_INITIALIZED | \
                          EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE | EFI_RESOURCE_ATTRIBUTE_TESTED)
@@ -97,4 +99,59 @@ A05BuildMemoryHobs (
   }
 
   return EFI_SUCCESS;
+}
+
+EFI_STATUS
+EFIAPI
+A05ConfigureQemuMmu (
+  IN UINT64  ImageBase,
+  IN UINT32  ImageSize,
+  IN UINT64  FvBase,
+  IN UINT32  FvSize
+  )
+{
+  EFI_PEI_HOB_POINTERS          Hob;
+  ARM_MEMORY_REGION_DESCRIPTOR  *Map;
+  UINTN                         Count;
+  UINTN                         Index;
+
+  Count = 0;
+  for (Hob.Raw = GetHobList (); !END_OF_HOB_LIST (Hob); Hob.Raw = GET_NEXT_HOB (Hob)) {
+    if ((GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_RESOURCE_DESCRIPTOR) &&
+        (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_SYSTEM_MEMORY)) {
+      Count++;
+    }
+  }
+
+  // Reuse the system RAM HOBs so firmware reservations stay out of the map.
+  // Three additional entries cover the image, its read-only FV and QEMU MMIO.
+  Map = AllocateZeroPool ((Count + 4) * sizeof (*Map));
+  if (Map == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  Index = 0;
+  for (Hob.Raw = GetHobList (); !END_OF_HOB_LIST (Hob); Hob.Raw = GET_NEXT_HOB (Hob)) {
+    if ((GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_RESOURCE_DESCRIPTOR) &&
+        (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_SYSTEM_MEMORY)) {
+      Map[Index].PhysicalBase = Hob.ResourceDescriptor->PhysicalStart;
+      Map[Index].VirtualBase  = Map[Index].PhysicalBase;
+      Map[Index].Length       = Hob.ResourceDescriptor->ResourceLength;
+      Map[Index].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
+      Index++;
+    }
+  }
+
+  // ArmVirt virt peripheral window. A phone platform supplies its own MMIO.
+  Map[Index++] = (ARM_MEMORY_REGION_DESCRIPTOR) {
+    0x08000000, 0x08000000, 0x08000000, ARM_MEMORY_REGION_ATTRIBUTE_DEVICE
+  };
+  Map[Index++] = (ARM_MEMORY_REGION_DESCRIPTOR) {
+    ImageBase, ImageBase, ImageSize, ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK
+  };
+  Map[Index] = (ARM_MEMORY_REGION_DESCRIPTOR) {
+    FvBase, FvBase, FvSize, ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK_RO
+  };
+
+  return ArmConfigureMmu (Map, NULL, NULL);
 }

@@ -57,4 +57,4 @@ qemu-system-aarch64 -machine virt,virtualization=on -cpu cortex-a53 -m 1024 \
 
 SEC entrega a DXE descriptores HOB separados para RAM disponible y reservada. La prueba con 1 GiB de RAM y `/memreserve/ 0x7f000000 0x01000000` eligió `0x7b000000` para los 64 MiB de SEC. DXE inicializó memoria en `0x7b001000` y llegó a BDS sin solapar la reserva en las asignaciones registradas. Para repetir la prueba con QEMU y `dtc` instalados, ejecutar `python3 tests/check_sec_qemu_reservations.py RUTA_AL_FD`.
 
-La prueba conserva el mapa de traducción MMU de ArmVirt. Queda pendiente el mapa MMU de la placa y verificar las reservas con el DTB del teléfono.
+La prueba construye el mapa de traducción MMU con los HOB de RAM disponible y agrega la imagen de firmware y la ventana MMIO de QEMU. Las reservas ajenas a la imagen quedan fuera de ese mapa. Quedan pendientes los rangos MMIO de la placa y la verificación con el DTB del teléfono.

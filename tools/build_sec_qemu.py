@@ -69,8 +69,8 @@ def main():
     inf = prepi / "ArmVirtPrePiUniCoreRelocatable.inf"
     content = inf.read_text(encoding="utf-8")
     content = rewrite(content, "  FdtParser.c\n", "  FdtParser.c\n  SecMemoryQemu.c\n  MemoryHobsQemu.c\n")
-    content = rewrite(content, "[Packages]\n", "[Packages]\n  A05Pkg/A05Pkg.dec\n")
-    content = rewrite(content, "[LibraryClasses]\n", "[LibraryClasses]\n  A05EarlyMemoryLib\n")
+    content = rewrite(content, "[Packages]\n", "[Packages]\n  A05Pkg/A05Pkg.dec\n  UefiCpuPkg/UefiCpuPkg.dec\n")
+    content = rewrite(content, "[LibraryClasses]\n", "[LibraryClasses]\n  A05EarlyMemoryLib\n  ArmMmuLib\n")
     inf.write_text(content, encoding="utf-8")
 
     main_source = prepi / "PrePi.c"
@@ -78,7 +78,7 @@ def main():
         main_source.read_text(encoding="utf-8"), '#include "PrePi.h"\n',
         '#include "PrePi.h"\n\n'
         "EFI_STATUS EFIAPI A05BuildMemoryHobs (CONST VOID *Fdt, UINT64 ImageBase, UINT32 ImageSize);\n"
-        "VOID InitMmu (VOID);\n"
+        "EFI_STATUS EFIAPI A05ConfigureQemuMmu (UINT64 ImageBase, UINT32 ImageSize, UINT64 FvBase, UINT32 FvSize);\n"
         "VOID BuildMemoryTypeInformationHob (VOID);\n",
     )
     content = rewrite(
@@ -90,7 +90,11 @@ def main():
         "  if (EFI_ERROR (Status)) {\n"
         "    CpuDeadLoop ();\n"
         "  }\n"
-        "  InitMmu ();\n"
+        "  Status = A05ConfigureQemuMmu (PcdGet64 (PcdFdBaseAddress), PcdGet32 (PcdFdSize),\n"
+        "                               PcdGet64 (PcdFvBaseAddress), PcdGet32 (PcdFvSize));\n"
+        "  if (EFI_ERROR (Status)) {\n"
+        "    CpuDeadLoop ();\n"
+        "  }\n"
         "  if (FeaturePcdGet (PcdPrePiProduceMemoryTypeInformationHob)) {\n"
         "    BuildMemoryTypeInformationHob ();\n"
         "  }\n",
