@@ -45,4 +45,14 @@ qemu-system-aarch64 -machine virt,virtualization=on -cpu cortex-a53 -m 1024 \
   -nographic -kernel Build/ArmVirtQemuKernel-AArch64/DEBUG_GCC/FV/QEMU_EFI.fd
 ```
 
-`A05EarlyMemoryLib` selecciona una región alineada dentro de un banco de RAM. Lee los bancos, las reservas del encabezado y los nodos `reserved-memory` del DTB que recibe del cargador. También excluye la imagen cargada, el DTB y el initrd. La prueba de host cubre reservas solapadas, direcciones por encima de 4 GiB, rangos desbordados y falta de espacio. La lectura del DTB se verificó con un árbol sintético que contiene dos bancos, reservas y un initrd. La biblioteca compila para AARCH64. Su conexión a SEC y la obtención del DTB de fábrica siguen pendientes.
+`A05EarlyMemoryLib` selecciona una región alineada dentro de un banco de RAM. Lee los bancos, las reservas del encabezado y los nodos `reserved-memory` del DTB que recibe del cargador. También excluye la imagen cargada, el DTB y el initrd. La prueba de host cubre reservas solapadas, direcciones por encima de 4 GiB, rangos desbordados y falta de espacio. La lectura del DTB se verificó con un árbol sintético que contiene dos bancos, reservas y un initrd.
+
+Para compilar la integración de SEC en Linux con la misma revisión de EDK II y BaseTools ya compilado:
+
+```sh
+python3 tools/build_sec_qemu.py --edk2 /ruta/al/checkout/edk2
+qemu-system-aarch64 -machine virt,virtualization=on -cpu cortex-a53 -m 1024 \
+  -nographic -kernel build/sec-qemu/Build/ArmVirtQemuKernel-AArch64/DEBUG_GCC/FV/QEMU_EFI.fd
+```
+
+La prueba con 1 GiB de RAM y `/memreserve/ 0x7f000000 0x01000000` eligió `0x7b000000` para el área de 64 MiB de SEC y llegó a BDS. DXE todavía usa el mapa de ArmVirt y en esa prueba volvió a tomar memoria de la reserva. El firmware del A05 necesita un mapa que mantenga protegidas esas regiones durante todo el arranque. También quedan pendientes el DTB de fábrica y la prueba en el teléfono.
