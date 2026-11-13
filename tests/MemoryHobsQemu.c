@@ -168,7 +168,8 @@ A05ConfigureQemuMmu (
   IN UINT32  ImageSize,
   IN UINT64  FvBase,
   IN UINT32  FvSize,
-  IN BOOLEAN UseQemuMmio
+  IN BOOLEAN UseQemuMmio,
+  IN BOOLEAN UsePhoneUart
   )
 {
   EFI_PEI_HOB_POINTERS          Hob;
@@ -190,7 +191,7 @@ A05ConfigureQemuMmu (
     return Status;
   }
 
-  if (!UseQemuMmio && (!Mmio.UartPresent[0] || (Mmio.Uart[0].Base != 0x11002000))) {
+  if (UsePhoneUart && (!Mmio.UartPresent[0] || (Mmio.Uart[0].Base != 0x11002000))) {
     return EFI_UNSUPPORTED;
   }
 
@@ -244,7 +245,7 @@ A05ConfigureQemuMmu (
   }
 
   for (Device = 0; Device < ARRAY_SIZE (Mmio.Uart); Device++) {
-    if (Mmio.UartPresent[Device]) {
+    if ((UseQemuMmio || UsePhoneUart) && Mmio.UartPresent[Device]) {
       Map[Index++] = (ARM_MEMORY_REGION_DESCRIPTOR) {
         Mmio.Uart[Device].Base, Mmio.Uart[Device].Base, Mmio.Uart[Device].Size,
         ARM_MEMORY_REGION_ATTRIBUTE_DEVICE

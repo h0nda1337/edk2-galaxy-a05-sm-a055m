@@ -15,7 +15,11 @@ def main():
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--workspace", type=Path)
     parser.add_argument("--phone", action="store_true", help="Build the Galaxy A05 SEC-to-DXE diagnostic image.")
+    parser.add_argument("--phone-uart", action="store_true",
+                        help="Use UART0 when its clock and pinmux are known to be ready.")
     args = parser.parse_args()
+    if args.phone_uart and not args.phone:
+        parser.error("--phone-uart requires --phone.")
     edk2 = args.edk2.resolve(strict=True)
     lock = json.loads((ROOT / "sources.lock.json").read_text(encoding="utf-8"))["edk2"]
 
@@ -31,7 +35,8 @@ def main():
 
     # Generate a disposable workspace overlay. Resolve imports against upstream
     # with PACKAGES_PATH; the build does not edit tracked upstream files.
-    workspace = (args.workspace or ROOT / "build" / ("sec-phone" if args.phone else "sec-qemu")).resolve()
+    variant = "sec-phone-uart" if args.phone_uart else "sec-phone" if args.phone else "sec-qemu"
+    workspace = (args.workspace or ROOT / "build" / variant).resolve()
     prepi = workspace / "ArmVirtPkg" / "PrePi"
     prepi.mkdir(parents=True, exist_ok=True)
     upstream = edk2 / "ArmVirtPkg"
@@ -81,7 +86,7 @@ def main():
         main_source.read_text(encoding="utf-8"), '#include "PrePi.h"\n',
         '#include "PrePi.h"\n\n'
         "EFI_STATUS EFIAPI A05BuildMemoryHobs (CONST VOID *Fdt, UINT64 ImageBase, UINT32 ImageSize);\n"
-        "EFI_STATUS EFIAPI A05ConfigureQemuMmu (CONST VOID *Fdt, UINT64 ImageBase, UINT32 ImageSize, UINT64 FvBase, UINT32 FvSize, BOOLEAN UseQemuMmio);\n"
+        "EFI_STATUS EFIAPI A05ConfigureQemuMmu (CONST VOID *Fdt, UINT64 ImageBase, UINT32 ImageSize, UINT64 FvBase, UINT32 FvSize, BOOLEAN UseQemuMmio, BOOLEAN UsePhoneUart);\n"
         "VOID BuildMemoryTypeInformationHob (VOID);\n",
     )
     content = rewrite(
@@ -96,7 +101,8 @@ def main():
         "  Status = A05ConfigureQemuMmu ((CONST VOID *)(UINTN)PcdGet64 (PcdDeviceTreeInitialBaseAddress),\n"
         "                               PcdGet64 (PcdFdBaseAddress), PcdGet32 (PcdFdSize),\n"
         "                               PcdGet64 (PcdFvBaseAddress), PcdGet32 (PcdFvSize), "
-        + ("FALSE" if args.phone else "TRUE") + ");\n"
+        + ("FALSE" if args.phone else "TRUE") + ", "
+        + ("TRUE" if args.phone_uart else "FALSE") + ");\n"
         "  if (EFI_ERROR (Status)) {\n"
         "    CpuDeadLoop ();\n"
         "  }\n"
@@ -113,10 +119,11 @@ def main():
     if args.phone:
         content = rewrite(content, "  Status = PlatformPeim ();\n  ASSERT_EFI_ERROR (Status);\n",
                           "  BuildFvHob (PcdGet64 (PcdFvBaseAddress), PcdGet32 (PcdFvSize));\n")
-        content = rewrite(content, "  SerialPortInitialize ();\n",
-                          "  SerialPortInitialize ();\n"
-                          '  SerialPortWrite ((UINT8 *)"A05 EDK II SEC reached\\r\\n",\n'
-                          '                   sizeof ("A05 EDK II SEC reached\\r\\n") - 1);\n')
+        if args.phone_uart:
+            content = rewrite(content, "  SerialPortInitialize ();\n",
+                              "  SerialPortInitialize ();\n"
+                              '  SerialPortWrite ((UINT8 *)"A05 EDK II SEC reached\\r\\n",\n'
+                              '                   sizeof ("A05 EDK II SEC reached\\r\\n") - 1);\n')
         content = rewrite(content, "  ASSERT_EFI_ERROR (Status);\n}\n",
                           "  if (EFI_ERROR (Status)) {\n    CpuDeadLoop ();\n  }\n}\n")
     main_source.write_text(content, encoding="utf-8")
@@ -135,6 +142,8 @@ def main():
                       "  A05EarlyMemoryLib|A05Pkg/Library/A05EarlyMemoryLib/A05EarlyMemoryLib.inf\n"
                       "  A05PlatformMmioLib|A05Pkg/Library/A05PlatformMmioLib/A05PlatformMmioLib.inf\n")
     if args.phone:
+        serial_lib = ("A05Pkg/Library/A05SerialPortLib/A05SerialPortLib.inf" if args.phone_uart
+                      else "MdePkg/Library/BaseSerialPortLibNull/BaseSerialPortLibNull.inf")
         shared_dsc = workspace / "ArmVirtPkg" / "A05Phone.dsc.inc"
         shared = (upstream / "ArmVirt.dsc.inc").read_text(encoding="utf-8")
         content = rewrite(content, "!include ArmVirtPkg/ArmVirt.dsc.inc",
@@ -149,14 +158,14 @@ def main():
                           core + " {\n"
                           "    <LibraryClasses>\n"
                           "      DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf\n"
-                          "      SerialPortLib|A05Pkg/Library/A05SerialPortLib/A05SerialPortLib.inf\n"
+                          f"      SerialPortLib|{serial_lib}\n"
                           "      NULL|A05Pkg/Drivers/A05Dxe/A05Dxe.inf\n")
         shared_dsc.write_text(shared, encoding="utf-8")
         content = rewrite(content, "  ArmVirtPkg/PrePi/ArmVirtPrePiUniCoreRelocatable.inf {\n"
                                    "    <LibraryClasses>\n",
                           "  ArmVirtPkg/PrePi/ArmVirtPrePiUniCoreRelocatable.inf {\n"
                           "    <LibraryClasses>\n"
-                          "      SerialPortLib|A05Pkg/Library/A05SerialPortLib/A05SerialPortLib.inf\n"
+                          f"      SerialPortLib|{serial_lib}\n"
                           "      DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf\n")
     dsc.write_text(content, encoding="utf-8")
 

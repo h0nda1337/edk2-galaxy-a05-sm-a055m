@@ -118,11 +118,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("firmware", type=Path)
     parser.add_argument("dtb", type=Path, help="Factory base DTB with its overlay applied")
+    parser.add_argument("--disable-uart", action="store_true",
+                        help="Mark UART0 disabled in the test device tree.")
     args = parser.parse_args()
     firmware = args.firmware.resolve(strict=True)
     with tempfile.TemporaryDirectory() as directory:
         fixture = Path(directory) / "framebuffer.dtb"
         make_fixture(args.dtb, fixture)
+        if args.disable_uart:
+            subprocess.run(["fdtput", "-t", "s", fixture, "/serial@11002000",
+                            "status", "disabled"], check=True)
         entry = Path(directory) / "qemu-entry.bin"
         # Set the Linux handoff registers, then branch to the FD. This code
         # runs only in QEMU and is independent of the packaged image.
