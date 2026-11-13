@@ -65,16 +65,38 @@ def main():
     )
     entry.write_text(entry_text, encoding="utf-8")
     shutil.copyfile(ROOT / "tests" / "SecMemoryQemu.c", prepi / "SecMemoryQemu.c")
+    shutil.copyfile(ROOT / "tests" / "MemoryHobsQemu.c", prepi / "MemoryHobsQemu.c")
     inf = prepi / "ArmVirtPrePiUniCoreRelocatable.inf"
     content = inf.read_text(encoding="utf-8")
-    content = rewrite(content, "  FdtParser.c\n", "  FdtParser.c\n  SecMemoryQemu.c\n")
+    content = rewrite(content, "  FdtParser.c\n", "  FdtParser.c\n  SecMemoryQemu.c\n  MemoryHobsQemu.c\n")
     content = rewrite(content, "[Packages]\n", "[Packages]\n  A05Pkg/A05Pkg.dec\n")
     content = rewrite(content, "[LibraryClasses]\n", "[LibraryClasses]\n  A05EarlyMemoryLib\n")
     inf.write_text(content, encoding="utf-8")
 
     main_source = prepi / "PrePi.c"
     content = rewrite(
-        main_source.read_text(encoding="utf-8"),
+        main_source.read_text(encoding="utf-8"), '#include "PrePi.h"\n',
+        '#include "PrePi.h"\n\n'
+        "EFI_STATUS EFIAPI A05BuildMemoryHobs (CONST VOID *Fdt, UINT64 ImageBase, UINT32 ImageSize);\n"
+        "VOID InitMmu (VOID);\n"
+        "VOID BuildMemoryTypeInformationHob (VOID);\n",
+    )
+    content = rewrite(
+        content,
+        "  Status = MemoryPeim (UefiMemoryBase, FixedPcdGet32 (PcdSystemMemoryUefiRegionSize));\n"
+        "  ASSERT_EFI_ERROR (Status);\n",
+        "  Status = A05BuildMemoryHobs ((CONST VOID *)(UINTN)PcdGet64 (PcdDeviceTreeInitialBaseAddress),\n"
+        "                              PcdGet64 (PcdFdBaseAddress), PcdGet32 (PcdFdSize));\n"
+        "  if (EFI_ERROR (Status)) {\n"
+        "    CpuDeadLoop ();\n"
+        "  }\n"
+        "  InitMmu ();\n"
+        "  if (FeaturePcdGet (PcdPrePiProduceMemoryTypeInformationHob)) {\n"
+        "    BuildMemoryTypeInformationHob ();\n"
+        "  }\n",
+    )
+    content = rewrite(
+        content,
         "  SerialPortInitialize ();\n",
         "  SerialPortInitialize ();\n"
         '  DEBUG ((DEBUG_INFO, "A05 SEC pool base: 0x%Lx\\n", (UINT64)UefiMemoryBase));\n',

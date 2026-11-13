@@ -8,6 +8,24 @@ typedef struct {
   UINT64 Size;
 } A05_MEMORY_RANGE;
 
+#define A05_MAX_RAM_BANKS   16
+#define A05_MAX_EXCLUSIONS  128
+
+typedef struct {
+  A05_MEMORY_RANGE  Banks[A05_MAX_RAM_BANKS];
+  A05_MEMORY_RANGE  Excluded[A05_MAX_EXCLUSIONS];
+  UINTN             BankCount;
+  UINTN             ExcludedCount;
+} A05_MEMORY_LAYOUT;
+
+RETURN_STATUS
+EFIAPI
+A05ReadMemoryLayout (
+  IN CONST VOID              *Fdt,
+  IN CONST A05_MEMORY_RANGE  *Image,
+  OUT A05_MEMORY_LAYOUT      *Layout
+  );
+
 /**
   Select the highest page-aligned range that fits entirely in one RAM bank.
   Excluded ranges include the loaded firmware, DTB, initrd, and static

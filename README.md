@@ -55,4 +55,6 @@ qemu-system-aarch64 -machine virt,virtualization=on -cpu cortex-a53 -m 1024 \
   -nographic -kernel build/sec-qemu/Build/ArmVirtQemuKernel-AArch64/DEBUG_GCC/FV/QEMU_EFI.fd
 ```
 
-La prueba con 1 GiB de RAM y `/memreserve/ 0x7f000000 0x01000000` eligió `0x7b000000` para el área de 64 MiB de SEC y llegó a BDS. DXE todavía usa el mapa de ArmVirt y en esa prueba volvió a tomar memoria de la reserva. El firmware del A05 necesita un mapa que mantenga protegidas esas regiones durante todo el arranque. También quedan pendientes el DTB de fábrica y la prueba en el teléfono.
+SEC entrega a DXE descriptores HOB separados para RAM disponible y reservada. La prueba con 1 GiB de RAM y `/memreserve/ 0x7f000000 0x01000000` eligió `0x7b000000` para los 64 MiB de SEC. DXE inicializó memoria en `0x7b001000` y llegó a BDS sin solapar la reserva en las asignaciones registradas. Para repetir la prueba con QEMU y `dtc` instalados, ejecutar `python3 tests/check_sec_qemu_reservations.py RUTA_AL_FD`.
+
+La prueba conserva el mapa de traducción MMU de ArmVirt. Queda pendiente el mapa MMU de la placa y verificar las reservas con el DTB del teléfono.

@@ -2,8 +2,6 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/FdtLib.h>
 
-#define A05_MAX_RAM_BANKS     16
-#define A05_MAX_EXCLUSIONS    128
 #define A05_MAX_DTB_SIZE      (2U * 1024U * 1024U)
 
 STATIC
@@ -138,15 +136,14 @@ ReadInitrd (
 
 RETURN_STATUS
 EFIAPI
-A05SelectEarlyMemoryFromFdt (
+A05ReadMemoryLayout (
   IN CONST VOID              *Fdt,
   IN CONST A05_MEMORY_RANGE  *Image,
-  IN UINT64                   Size,
-  OUT A05_MEMORY_RANGE       *Selected
+  OUT A05_MEMORY_LAYOUT      *Layout
   )
 {
-  A05_MEMORY_RANGE  Banks[A05_MAX_RAM_BANKS];
-  A05_MEMORY_RANGE  Excluded[A05_MAX_EXCLUSIONS];
+  A05_MEMORY_RANGE  *Banks;
+  A05_MEMORY_RANGE  *Excluded;
   UINTN             BankCount;
   UINTN             ExcludedCount;
   INT32             Node;
@@ -157,7 +154,7 @@ A05SelectEarlyMemoryFromFdt (
   CONST CHAR8       *Type;
   RETURN_STATUS     Status;
 
-  if ((Fdt == NULL) || (Image == NULL) || (Selected == NULL)) {
+  if ((Fdt == NULL) || (Image == NULL) || (Layout == NULL)) {
     return RETURN_INVALID_PARAMETER;
   }
 
@@ -165,6 +162,8 @@ A05SelectEarlyMemoryFromFdt (
     return RETURN_COMPROMISED_DATA;
   }
 
+  Banks     = Layout->Banks;
+  Excluded  = Layout->Excluded;
   BankCount = 0;
   for (Node = FdtFirstSubnode (Fdt, 0); Node >= 0; Node = FdtNextSubnode (Fdt, Node)) {
     Type = FdtGetProp (Fdt, Node, "device_type", &Length);
@@ -241,5 +240,28 @@ A05SelectEarlyMemoryFromFdt (
     return Status;
   }
 
-  return A05SelectEarlyMemory (Banks, BankCount, Excluded, ExcludedCount, Size, Selected);
+  Layout->BankCount     = BankCount;
+  Layout->ExcludedCount = ExcludedCount;
+  return RETURN_SUCCESS;
+}
+
+RETURN_STATUS
+EFIAPI
+A05SelectEarlyMemoryFromFdt (
+  IN CONST VOID              *Fdt,
+  IN CONST A05_MEMORY_RANGE  *Image,
+  IN UINT64                   Size,
+  OUT A05_MEMORY_RANGE       *Selected
+  )
+{
+  A05_MEMORY_LAYOUT  Layout;
+  RETURN_STATUS      Status;
+
+  Status = A05ReadMemoryLayout (Fdt, Image, &Layout);
+  if (RETURN_ERROR (Status)) {
+    return Status;
+  }
+
+  return A05SelectEarlyMemory (Layout.Banks, Layout.BankCount, Layout.Excluded,
+                               Layout.ExcludedCount, Size, Selected);
 }
