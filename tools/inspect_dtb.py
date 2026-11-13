@@ -3,6 +3,7 @@
 import argparse
 import json
 import subprocess
+import struct
 from pathlib import Path
 
 
@@ -11,6 +12,25 @@ def main():
     parser.add_argument("dtb", type=Path, help="One flattened device tree, with overlays applied if applicable.")
     args = parser.parse_args()
     dtb = args.dtb.resolve(strict=True)
+    data = dtb.read_bytes()
+    if len(data) < 40:
+        raise ValueError("Truncated FDT header")
+    magic, total, _, _, reserve_offset = struct.unpack_from(">5I", data)
+    if magic != 0xD00DFEED or total > len(data) or total < 40:
+        raise ValueError("Invalid FDT header or total size")
+    if reserve_offset < 40 or reserve_offset % 8:
+        raise ValueError("Invalid FDT reservation map offset")
+    header_reservations = []
+    while True:
+        if reserve_offset + 16 > total:
+            raise ValueError("Unterminated FDT reservation map")
+        address, size = struct.unpack_from(">QQ", data, reserve_offset)
+        reserve_offset += 16
+        if address == 0 and size == 0:
+            break
+        if address + size > 1 << 64:
+            raise ValueError("FDT reservation overflows physical address space")
+        header_reservations.append({"base": hex(address), "size": hex(size)})
 
     def get(*options):
         return subprocess.check_output(
@@ -76,6 +96,7 @@ def main():
                 reserved[node]["requested_size"] = hex(number(cells(node, "size")))
 
     print(json.dumps({
+        "header_reservations": header_reservations,
         "memory_nodes": memory,
         "reserved_memory_nodes": reserved,
         "root_hardware_nodes": hardware,
