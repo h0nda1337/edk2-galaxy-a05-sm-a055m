@@ -11,7 +11,12 @@
 
 [Packages]
   MdePkg/MdePkg.dec
+  A05Pkg/A05Pkg.dec
 
 [LibraryClasses]
   BaseLib
+  HobLib
   SerialPortLib
+
+[Guids]
+  gA05DiagnosticFramebufferGuid

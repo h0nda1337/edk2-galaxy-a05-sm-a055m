@@ -1,6 +1,8 @@
 #include <PiPei.h>
+#include <Library/BaseLib.h>
 #include <Library/A05EarlyMemoryLib.h>
 #include <Library/A05PlatformMmioLib.h>
+#include <Library/FdtLib.h>
 #include <Library/ArmMmuLib.h>
 #include <Library/DebugLib.h>
 #include <Library/HobLib.h>
@@ -8,6 +10,60 @@
 
 #define RAM_ATTRIBUTES  (EFI_RESOURCE_ATTRIBUTE_PRESENT | EFI_RESOURCE_ATTRIBUTE_INITIALIZED | \
                          EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE | EFI_RESOURCE_ATTRIBUTE_TESTED)
+
+extern EFI_GUID gA05DiagnosticFramebufferGuid;
+
+STATIC
+BOOLEAN
+ReadFramebuffer (
+  IN CONST VOID         *Fdt,
+  OUT A05_MEMORY_RANGE  *Framebuffer
+  )
+{
+  STATIC CONST CHAR8 *CONST Names[] = {
+    "atag,videolfb-fb_base_h", "atag,videolfb-fb_base_l",
+    "atag,videolfb-vramSize", "atag,videolfb-islcm_inited"
+  };
+  UINT32        Values[ARRAY_SIZE (Names)];
+  INT32         Chosen;
+  INT32         Node;
+  INT32         Parent;
+  INT32         Length;
+  UINTN         Index;
+  CONST UINT32  *Cells;
+  UINT64        ReservedBase;
+  UINT64        ReservedSize;
+
+  Chosen = FdtPathOffset (Fdt, "/chosen");
+  Node = FdtPathOffset (Fdt, "/reserved-memory/mblock-16-framebuffer");
+  Parent = FdtPathOffset (Fdt, "/reserved-memory");
+  if ((Chosen < 0) || (Node < 0) || (Parent < 0) ||
+      (FdtAddressCells (Fdt, Parent) != 2) || (FdtSizeCells (Fdt, Parent) != 2)) {
+    return FALSE;
+  }
+
+  for (Index = 0; Index < ARRAY_SIZE (Names); Index++) {
+    Cells = FdtGetProp (Fdt, Chosen, Names[Index], &Length);
+    if ((Cells == NULL) || (Length != sizeof (UINT32))) {
+      return FALSE;
+    }
+    Values[Index] = Fdt32ToCpu (*Cells);
+  }
+
+  Cells = FdtGetProp (Fdt, Node, "reg", &Length);
+  if ((Cells == NULL) || (Length != 4 * sizeof (UINT32)) || (Values[3] != 1)) {
+    return FALSE;
+  }
+
+  ReservedBase = LShiftU64 (Fdt32ToCpu (Cells[0]), 32) | Fdt32ToCpu (Cells[1]);
+  ReservedSize = LShiftU64 (Fdt32ToCpu (Cells[2]), 32) | Fdt32ToCpu (Cells[3]);
+  Framebuffer->Base = LShiftU64 (Values[0], 32) | Values[1];
+  Framebuffer->Size = Values[2];
+  return (Framebuffer->Base == ReservedBase) && (Framebuffer->Size <= ReservedSize) &&
+         (Framebuffer->Size >= SIZE_1MB) && (Framebuffer->Size <= SIZE_64MB) &&
+         (((Framebuffer->Base | Framebuffer->Size) & EFI_PAGE_MASK) == 0) &&
+         (Framebuffer->Base <= MAX_UINT64 - Framebuffer->Size);
+}
 
 EFI_STATUS
 EFIAPI
@@ -120,6 +176,9 @@ A05ConfigureQemuMmu (
   UINTN                         Device;
   A05_PLATFORM_MMIO             Mmio;
   EFI_STATUS                    Status;
+  A05_MEMORY_RANGE              Framebuffer;
+  BOOLEAN                       HasFramebuffer;
+  BOOLEAN                       FramebufferReserved;
 
   Status = A05ReadPlatformMmio (Fdt, &Mmio);
   if ((Status == EFI_NOT_FOUND) && UseQemuMmio) {
@@ -134,17 +193,27 @@ A05ConfigureQemuMmu (
     return EFI_UNSUPPORTED;
   }
 
+  HasFramebuffer = !UseQemuMmio && ReadFramebuffer (Fdt, &Framebuffer);
+  FramebufferReserved = FALSE;
   Count = 0;
   for (Hob.Raw = GetHobList (); !END_OF_HOB_LIST (Hob); Hob.Raw = GET_NEXT_HOB (Hob)) {
     if ((GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_RESOURCE_DESCRIPTOR) &&
         (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_SYSTEM_MEMORY)) {
       Count++;
+    } else if (HasFramebuffer && (GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_RESOURCE_DESCRIPTOR) &&
+               (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_MEMORY_RESERVED) &&
+               (Hob.ResourceDescriptor->PhysicalStart == Framebuffer.Base) &&
+               (Hob.ResourceDescriptor->ResourceLength >= Framebuffer.Size)) {
+      FramebufferReserved = TRUE;
     }
   }
+  HasFramebuffer = HasFramebuffer && FramebufferReserved &&
+                   ((Framebuffer.Base >= ImageBase + ImageSize) ||
+                    (Framebuffer.Base + Framebuffer.Size <= ImageBase));
 
   // Reuse the system RAM HOBs so firmware reservations stay out of the map.
   // Three additional entries cover the image, its read-only FV and QEMU MMIO.
-  Map = AllocateZeroPool ((Count + 4 + Mmio.GicCount + ARRAY_SIZE (Mmio.Uart)) * sizeof (*Map));
+  Map = AllocateZeroPool ((Count + 5 + Mmio.GicCount + ARRAY_SIZE (Mmio.Uart)) * sizeof (*Map));
   if (Map == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
@@ -205,9 +274,16 @@ A05ConfigureQemuMmu (
   Map[Index++] = (ARM_MEMORY_REGION_DESCRIPTOR) {
     ImageBase, ImageBase, ImageSize, ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK
   };
-  Map[Index] = (ARM_MEMORY_REGION_DESCRIPTOR) {
+  Map[Index++] = (ARM_MEMORY_REGION_DESCRIPTOR) {
     FvBase, FvBase, FvSize, ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK_RO
   };
+  if (HasFramebuffer) {
+    Map[Index] = (ARM_MEMORY_REGION_DESCRIPTOR) {
+      Framebuffer.Base, Framebuffer.Base, Framebuffer.Size,
+      ARM_MEMORY_REGION_ATTRIBUTE_UNCACHED_UNBUFFERED
+    };
+    BuildGuidDataHob (&gA05DiagnosticFramebufferGuid, &Framebuffer, sizeof (Framebuffer));
+  }
 
   return ArmConfigureMmu (Map, NULL, NULL);
 }

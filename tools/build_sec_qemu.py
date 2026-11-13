@@ -73,6 +73,7 @@ def main():
     content = rewrite(content, "[Packages]\n", "[Packages]\n  A05Pkg/A05Pkg.dec\n  UefiCpuPkg/UefiCpuPkg.dec\n")
     content = rewrite(content, "[LibraryClasses]\n",
                       "[LibraryClasses]\n  A05EarlyMemoryLib\n  A05PlatformMmioLib\n  ArmMmuLib\n")
+    content = rewrite(content, "[Guids]\n", "[Guids]\n  gA05DiagnosticFramebufferGuid\n")
     inf.write_text(content, encoding="utf-8")
 
     main_source = prepi / "PrePi.c"
