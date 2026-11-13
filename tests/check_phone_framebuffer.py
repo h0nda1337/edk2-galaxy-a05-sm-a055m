@@ -111,21 +111,22 @@ def main():
     args = parser.parse_args()
     with tempfile.TemporaryDirectory() as directory:
         fixture = Path(directory) / "framebuffer.dtb"
-        endpoint = Path(directory) / "qmp"
         make_fixture(args.dtb, fixture)
-        with subprocess.Popen([
-            "qemu-system-aarch64", "-machine", "virt,virtualization=on",
-            "-cpu", "cortex-a53", "-m", "4096", "-display", "none", "-serial", "none",
-            "-monitor", "none", "-qmp", f"unix:{endpoint},server=on,wait=off",
-            "-kernel", str(args.firmware.resolve(strict=True)), "-dtb", str(fixture),
-            "-device", f"loader,addr={BASE + END - 4:#x},data={CANARY:#x},data-len=4",
-            "-device", f"loader,addr={BASE + END:#x},data={CANARY:#x},data-len=4",
-        ]) as qemu:
-            try:
-                check_pixels(qemu, endpoint)
-            finally:
-                qemu.terminate()
-    print("QEMU verified the DXE stripes and the guard word immediately after the one-MiB pattern.")
+        for level, virtualization in ((1, "off"), (2, "on")):
+            endpoint = Path(directory) / f"qmp-el{level}"
+            with subprocess.Popen([
+                "qemu-system-aarch64", "-machine", f"virt,virtualization={virtualization}",
+                "-cpu", "cortex-a53", "-m", "4096", "-display", "none", "-serial", "none",
+                "-monitor", "none", "-qmp", f"unix:{endpoint},server=on,wait=off",
+                "-kernel", str(args.firmware.resolve(strict=True)), "-dtb", str(fixture),
+                "-device", f"loader,addr={BASE + END - 4:#x},data={CANARY:#x},data-len=4",
+                "-device", f"loader,addr={BASE + END:#x},data={CANARY:#x},data-len=4",
+            ]) as qemu:
+                try:
+                    check_pixels(qemu, endpoint)
+                finally:
+                    qemu.terminate()
+            print(f"QEMU EL{level}: verified DXE stripes and the guard word after the one-MiB pattern.")
 
 
 if __name__ == "__main__":
