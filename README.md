@@ -59,7 +59,7 @@ SEC entrega a DXE descriptores HOB separados para RAM disponible y reservada. La
 
 La prueba construye el mapa de traducción MMU con los HOB de RAM disponible y agrega la imagen de firmware y la ventana MMIO de QEMU. Las reservas ajenas a la imagen quedan fuera de ese mapa. La prueba de integración añade nodos sintéticos con los nombres del GIC y UART del A05 y comprueba que SEC incorpora sus rangos como memoria de dispositivo antes de llegar a BDS. Los tamaños sintéticos sirven para probar la integración con EDK II.
 
-`A05PlatformMmioLib` lee las direcciones y tamaños de `reg` y redondea los límites a páginas de 4 KiB. Android expone los nodos raíz `gic500@0c000000`, `serial@11002000` y `serial@11003000`. El lector usa los compatibles de GICv3 y MediaTek UART de los bindings de Linux. Falta verificar los compatibles y las propiedades `reg` reales con el DTB de Samsung y probar el firmware de la placa. [GICv3](https://www.kernel.org/doc/Documentation/devicetree/bindings/interrupt-controller/arm,gic-v3.yaml) · [UART MediaTek](https://www.kernel.org/doc/Documentation/devicetree/bindings/serial/mediatek,uart.yaml)
+`A05PlatformMmioLib` lee las direcciones y tamaños de `reg` y redondea los límites a páginas de 4 KiB. En el DTB de Samsung reconstruido con el overlay, los nodos `mediatek,gic500` y `mediatek,gic_cpu` describen aperturas de 4 MiB en `0x0C000000` y 256 KiB en `0x0C400000`. Ambos UART describen 4 KiB cada uno en `0x11002000` y `0x11003000`. El lector se verificó con ese árbol. La posición exacta de los redistribuidores dentro de las aperturas aún debe confirmarse.
 
 ## Imágenes de fábrica
 
@@ -67,4 +67,12 @@ Con Python 3.11 o posterior y `lz4`, `python tools/extract_stock_ap.py AP_FIRMWA
 
 Si `vendor_boot` contiene varios árboles concatenados, `python tools/split_vendor_dtbs.py local/unpacked/dtb local/stock-dtbs` extrae cada árbol e informa su desplazamiento y SHA-256. Inspeccionar cada candidato con `inspect_dtb.py`. La selección del árbol y sus overlays depende de la variante de placa y del cargador de Samsung.
 
-El SM-A055M TCE consultado con ADB reportó `ro.boot.dtb_idx=0` y `ro.boot.dtbo_idx=0`. Para examinar esa selección, extraer las entradas del DTBO con `python mkdtboimg.py dump local/stock/dtbo.img --dtb local/overlay --decompress` y probar `fdtoverlay -i local/stock-dtbs/board-000.dtb -o local/board.dtb local/overlay.0`. El árbol resultante es una reconstrucción sin los ajustes dinámicos que introduce el cargador al arrancar. [Herramienta DTBO de AOSP](https://android.googlesource.com/platform/system/libufdt/+/refs/heads/main/utils/src/mkdtboimg.py)
+El SM-A055M TCE consultado con ADB reportó `ro.boot.dtb_idx=0` y `ro.boot.dtbo_idx=0`. En el paquete de fábrica `A055MUBUGDZB2`, el DTB de `vendor_boot` y el DTBO están en tablas Android de versión 0 con una entrada cada una. Ejecutar el desempaquetador de `vendor_boot` desde Linux para que pueda crear los enlaces simbólicos del ramdisk.
+
+```sh
+python3 mkdtboimg.py dump local/unpacked/dtb --dtb local/base --decompress
+python3 mkdtboimg.py dump local/stock/dtbo.img --dtb local/overlay --decompress
+fdtoverlay -i local/base.0 -o local/board.dtb local/overlay.0
+```
+
+El árbol reconstruido tiene SHA-256 `1d516a1d2e887fa6a72bf44f1fab9fa4d317964cc8b67287fd431f628bc3885e`. Contiene una descripción preliminar de RAM y solicitudes de reserva sin dirección que el firmware no puede tratar como memoria libre. La geometría final de RAM y las reservas que introduce el cargador se deben comprobar en el DTB de ejecución. `boot.img` tiene encabezado v4 con kernel gzip y ramdisk vacío. `vendor_boot.img` tiene encabezado v4 y declara `0x40080000` como dirección del kernel. [Herramienta DTBO de AOSP](https://android.googlesource.com/platform/system/libufdt/+/refs/heads/main/utils/src/mkdtboimg.py)
