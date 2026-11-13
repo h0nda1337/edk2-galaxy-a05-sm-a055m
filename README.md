@@ -83,4 +83,4 @@ El árbol reconstruido tiene SHA-256 `1d516a1d2e887fa6a72bf44f1fab9fa4d317964cc8
 
 `python3 tools/build_sec_qemu.py --phone --edk2 /ruta/al/checkout/edk2` genera `GALAXY_A05.fd` con SEC, DXE Core y una marca de diagnóstico en UART0. SEC construye el mapa MMIO a partir del DTB del cargador. El transmisor usa la configuración de UART heredada del cargador. Esta compilación está enfocada en el traspaso a DXE y todavía carece del conjunto de controladores y protocolos necesarios para BDS.
 
-La prueba de la imagen de diagnóstico en QEMU con el DTB de fábrica alcanzó código de DXE Core en la traza. Queda pendiente verificar el marcador UART y el arranque físico.
+Para verificar el traspaso con el DTB de fábrica reconstruido, ejecutar `python3 tests/check_phone_dxe_trace.py RUTA_AL_FD local/board.dtb`. La prueba comprueba la firma de instrucciones del constructor DXE en la traza de QEMU. El diagnóstico emite una marca por UART en SEC y otra en DXE antes de detenerse. Queda pendiente observar esas marcas en el teléfono.

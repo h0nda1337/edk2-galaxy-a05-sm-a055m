@@ -112,6 +112,10 @@ def main():
     if args.phone:
         content = rewrite(content, "  Status = PlatformPeim ();\n  ASSERT_EFI_ERROR (Status);\n",
                           "  BuildFvHob (PcdGet64 (PcdFvBaseAddress), PcdGet32 (PcdFvSize));\n")
+        content = rewrite(content, "  SerialPortInitialize ();\n",
+                          "  SerialPortInitialize ();\n"
+                          '  SerialPortWrite ((UINT8 *)"A05 EDK II SEC reached\\r\\n",\n'
+                          '                   sizeof ("A05 EDK II SEC reached\\r\\n") - 1);\n')
         content = rewrite(content, "  ASSERT_EFI_ERROR (Status);\n}\n",
                           "  if (EFI_ERROR (Status)) {\n    CpuDeadLoop ();\n  }\n}\n")
     main_source.write_text(content, encoding="utf-8")
@@ -151,7 +155,7 @@ def main():
                                    "    <LibraryClasses>\n",
                           "  ArmVirtPkg/PrePi/ArmVirtPrePiUniCoreRelocatable.inf {\n"
                           "    <LibraryClasses>\n"
-                          "      SerialPortLib|MdePkg/Library/BaseSerialPortLibNull/BaseSerialPortLibNull.inf\n"
+                          "      SerialPortLib|A05Pkg/Library/A05SerialPortLib/A05SerialPortLib.inf\n"
                           "      DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf\n")
     dsc.write_text(content, encoding="utf-8")
 
