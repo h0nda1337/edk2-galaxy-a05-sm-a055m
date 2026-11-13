@@ -1,5 +1,6 @@
 #include <PiPei.h>
 #include <Library/A05EarlyMemoryLib.h>
+#include <Library/A05PlatformMmioLib.h>
 #include <Library/ArmMmuLib.h>
 #include <Library/DebugLib.h>
 #include <Library/HobLib.h>
@@ -104,6 +105,7 @@ A05BuildMemoryHobs (
 EFI_STATUS
 EFIAPI
 A05ConfigureQemuMmu (
+  IN CONST VOID  *Fdt,
   IN UINT64  ImageBase,
   IN UINT32  ImageSize,
   IN UINT64  FvBase,
@@ -114,6 +116,18 @@ A05ConfigureQemuMmu (
   ARM_MEMORY_REGION_DESCRIPTOR  *Map;
   UINTN                         Count;
   UINTN                         Index;
+  UINTN                         Device;
+  A05_PLATFORM_MMIO             Mmio;
+  EFI_STATUS                    Status;
+
+  Status = A05ReadPlatformMmio (Fdt, &Mmio);
+  if (Status == EFI_NOT_FOUND) {
+    Mmio.GicCount = 0;
+    Mmio.UartPresent[0] = FALSE;
+    Mmio.UartPresent[1] = FALSE;
+  } else if (EFI_ERROR (Status)) {
+    return Status;
+  }
 
   Count = 0;
   for (Hob.Raw = GetHobList (); !END_OF_HOB_LIST (Hob); Hob.Raw = GET_NEXT_HOB (Hob)) {
@@ -125,7 +139,7 @@ A05ConfigureQemuMmu (
 
   // Reuse the system RAM HOBs so firmware reservations stay out of the map.
   // Three additional entries cover the image, its read-only FV and QEMU MMIO.
-  Map = AllocateZeroPool ((Count + 4) * sizeof (*Map));
+  Map = AllocateZeroPool ((Count + 4 + Mmio.GicCount + ARRAY_SIZE (Mmio.Uart)) * sizeof (*Map));
   if (Map == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
@@ -146,6 +160,42 @@ A05ConfigureQemuMmu (
   Map[Index++] = (ARM_MEMORY_REGION_DESCRIPTOR) {
     0x08000000, 0x08000000, 0x08000000, ARM_MEMORY_REGION_ATTRIBUTE_DEVICE
   };
+  for (Device = 0; Device < Mmio.GicCount; Device++) {
+    Map[Index++] = (ARM_MEMORY_REGION_DESCRIPTOR) {
+      Mmio.Gic[Device].Base, Mmio.Gic[Device].Base, Mmio.Gic[Device].Size,
+      ARM_MEMORY_REGION_ATTRIBUTE_DEVICE
+    };
+  }
+
+  for (Device = 0; Device < ARRAY_SIZE (Mmio.Uart); Device++) {
+    if (Mmio.UartPresent[Device]) {
+      Map[Index++] = (ARM_MEMORY_REGION_DESCRIPTOR) {
+        Mmio.Uart[Device].Base, Mmio.Uart[Device].Base, Mmio.Uart[Device].Size,
+        ARM_MEMORY_REGION_ATTRIBUTE_DEVICE
+      };
+    }
+  }
+
+  // Reject DT apertures that would change the attributes of actual DRAM.
+  for (Device = Count + 1; Device < Index; Device++) {
+    UINT64 Base = Map[Device].PhysicalBase;
+    UINT64 End  = Base + Map[Device].Length;
+    if (End > ImageBase && Base < ImageBase + ImageSize) {
+      return EFI_COMPROMISED_DATA;
+    }
+
+    for (Hob.Raw = GetHobList (); !END_OF_HOB_LIST (Hob); Hob.Raw = GET_NEXT_HOB (Hob)) {
+      if ((GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_RESOURCE_DESCRIPTOR) &&
+          (Base < Hob.ResourceDescriptor->PhysicalStart + Hob.ResourceDescriptor->ResourceLength) &&
+          (Hob.ResourceDescriptor->PhysicalStart < End) &&
+          ((Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_SYSTEM_MEMORY) ||
+           (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_MEMORY_RESERVED))) {
+        return EFI_COMPROMISED_DATA;
+      }
+    }
+
+    DEBUG ((DEBUG_INFO, "A05 SEC device mapping: 0x%Lx size 0x%Lx\n", Base, Map[Device].Length));
+  }
   Map[Index++] = (ARM_MEMORY_REGION_DESCRIPTOR) {
     ImageBase, ImageBase, ImageSize, ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK
   };

@@ -70,7 +70,8 @@ def main():
     content = inf.read_text(encoding="utf-8")
     content = rewrite(content, "  FdtParser.c\n", "  FdtParser.c\n  SecMemoryQemu.c\n  MemoryHobsQemu.c\n")
     content = rewrite(content, "[Packages]\n", "[Packages]\n  A05Pkg/A05Pkg.dec\n  UefiCpuPkg/UefiCpuPkg.dec\n")
-    content = rewrite(content, "[LibraryClasses]\n", "[LibraryClasses]\n  A05EarlyMemoryLib\n  ArmMmuLib\n")
+    content = rewrite(content, "[LibraryClasses]\n",
+                      "[LibraryClasses]\n  A05EarlyMemoryLib\n  A05PlatformMmioLib\n  ArmMmuLib\n")
     inf.write_text(content, encoding="utf-8")
 
     main_source = prepi / "PrePi.c"
@@ -78,7 +79,7 @@ def main():
         main_source.read_text(encoding="utf-8"), '#include "PrePi.h"\n',
         '#include "PrePi.h"\n\n'
         "EFI_STATUS EFIAPI A05BuildMemoryHobs (CONST VOID *Fdt, UINT64 ImageBase, UINT32 ImageSize);\n"
-        "EFI_STATUS EFIAPI A05ConfigureQemuMmu (UINT64 ImageBase, UINT32 ImageSize, UINT64 FvBase, UINT32 FvSize);\n"
+        "EFI_STATUS EFIAPI A05ConfigureQemuMmu (CONST VOID *Fdt, UINT64 ImageBase, UINT32 ImageSize, UINT64 FvBase, UINT32 FvSize);\n"
         "VOID BuildMemoryTypeInformationHob (VOID);\n",
     )
     content = rewrite(
@@ -90,7 +91,8 @@ def main():
         "  if (EFI_ERROR (Status)) {\n"
         "    CpuDeadLoop ();\n"
         "  }\n"
-        "  Status = A05ConfigureQemuMmu (PcdGet64 (PcdFdBaseAddress), PcdGet32 (PcdFdSize),\n"
+        "  Status = A05ConfigureQemuMmu ((CONST VOID *)(UINTN)PcdGet64 (PcdDeviceTreeInitialBaseAddress),\n"
+        "                               PcdGet64 (PcdFdBaseAddress), PcdGet32 (PcdFdSize),\n"
         "                               PcdGet64 (PcdFvBaseAddress), PcdGet32 (PcdFvSize));\n"
         "  if (EFI_ERROR (Status)) {\n"
         "    CpuDeadLoop ();\n"
@@ -118,7 +120,8 @@ def main():
     dsc = workspace / "ArmVirtPkg" / "ArmVirtQemuKernel.dsc"
     content = rewrite(dsc.read_text(encoding="utf-8"), "[LibraryClasses.common]\n",
                       "[LibraryClasses.common]\n"
-                      "  A05EarlyMemoryLib|A05Pkg/Library/A05EarlyMemoryLib/A05EarlyMemoryLib.inf\n")
+                      "  A05EarlyMemoryLib|A05Pkg/Library/A05EarlyMemoryLib/A05EarlyMemoryLib.inf\n"
+                      "  A05PlatformMmioLib|A05Pkg/Library/A05PlatformMmioLib/A05PlatformMmioLib.inf\n")
     dsc.write_text(content, encoding="utf-8")
 
     fdf = workspace / "ArmVirtPkg" / "ArmVirtQemuKernel.fdf"

@@ -8,6 +8,18 @@ import tempfile
 
 RESERVED_BASE = 0x7F000000
 RESERVED_END = 0x80000000
+BOARD_NODES = """
+/ {
+    gic500@0c000000 {
+        compatible = "arm,gic-v3";
+        reg = <0 0x0c000000 0 0x10000>, <0 0x0c080000 0 0x80000>;
+    };
+    serial@11002000 {
+        compatible = "mediatek,mt6577-uart";
+        reg = <0 0x11002000 0 0x400>;
+    };
+};
+"""
 
 
 def main():
@@ -27,7 +39,8 @@ def main():
         subprocess.run([*qemu, "-machine", f"{machine},dumpdtb={original}"], check=True)
         dts = subprocess.check_output(["dtc", "-q", "-I", "dtb", "-O", "dts", original], text=True)
         source.write_text(
-            dts.replace("/dts-v1/;", "/dts-v1/;\n/memreserve/ 0x7f000000 0x01000000;", 1),
+            dts.replace("/dts-v1/;", "/dts-v1/;\n/memreserve/ 0x7f000000 0x01000000;", 1)
+            + BOARD_NODES,
             encoding="utf-8",
         )
         subprocess.run(["dtc", "-q", "-I", "dts", "-O", "dtb", "-o", reserved, source], check=True)
@@ -44,6 +57,9 @@ def main():
     expected = (
         "A05 reserved RAM HOB: 0x7F000000 size 0x1000000",
         "A05 SEC pool base: 0x7B000000",
+        "A05 SEC device mapping: 0xC000000 size 0x10000",
+        "A05 SEC device mapping: 0xC080000 size 0x80000",
+        "A05 SEC device mapping: 0x11002000 size 0x1000",
         "BdsDxe: Press any key to enter the Boot Manager Menu.",
     )
     match = re.search(r"DxeMain: MemoryBaseAddress=(0x[0-9A-F]+) MemoryLength=(0x[0-9A-F]+)", log, re.I)
