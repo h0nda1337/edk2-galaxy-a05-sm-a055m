@@ -38,7 +38,9 @@ ReadFramebuffer (
   Node = FdtPathOffset (Fdt, "/reserved-memory/mblock-16-framebuffer");
   Parent = FdtPathOffset (Fdt, "/reserved-memory");
   if ((Chosen < 0) || (Node < 0) || (Parent < 0) ||
-      (FdtAddressCells (Fdt, Parent) != 2) || (FdtSizeCells (Fdt, Parent) != 2)) {
+      (FdtAddressCells (Fdt, Parent) != 2) || (FdtSizeCells (Fdt, Parent) != 2) ||
+      (FdtGetProp (Fdt, Parent, "ranges", &Length) == NULL) || (Length != 0) ||
+      (FdtGetProp (Fdt, Node, "no-map", &Length) == NULL) || (Length != 0)) {
     return FALSE;
   }
 
@@ -178,7 +180,6 @@ A05ConfigureQemuMmu (
   EFI_STATUS                    Status;
   A05_MEMORY_RANGE              Framebuffer;
   BOOLEAN                       HasFramebuffer;
-  BOOLEAN                       FramebufferReserved;
 
   Status = A05ReadPlatformMmio (Fdt, &Mmio);
   if ((Status == EFI_NOT_FOUND) && UseQemuMmio) {
@@ -193,23 +194,23 @@ A05ConfigureQemuMmu (
     return EFI_UNSUPPORTED;
   }
 
-  HasFramebuffer = !UseQemuMmio && ReadFramebuffer (Fdt, &Framebuffer);
-  FramebufferReserved = FALSE;
+  // LK can omit the framebuffer from /memory. Its explicit no-map node
+  // still describes the allocation even when no RAM HOB covers the range.
+  HasFramebuffer = !UseQemuMmio && ReadFramebuffer (Fdt, &Framebuffer) &&
+                   ((Framebuffer.Base >= ImageBase + ImageSize) ||
+                    (Framebuffer.Base + Framebuffer.Size <= ImageBase));
   Count = 0;
   for (Hob.Raw = GetHobList (); !END_OF_HOB_LIST (Hob); Hob.Raw = GET_NEXT_HOB (Hob)) {
     if ((GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_RESOURCE_DESCRIPTOR) &&
         (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_SYSTEM_MEMORY)) {
       Count++;
-    } else if (HasFramebuffer && (GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_RESOURCE_DESCRIPTOR) &&
-               (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_MEMORY_RESERVED) &&
-               (Hob.ResourceDescriptor->PhysicalStart == Framebuffer.Base) &&
-               (Hob.ResourceDescriptor->ResourceLength >= Framebuffer.Size)) {
-      FramebufferReserved = TRUE;
+      if (HasFramebuffer &&
+          (Framebuffer.Base < Hob.ResourceDescriptor->PhysicalStart + Hob.ResourceDescriptor->ResourceLength) &&
+          (Hob.ResourceDescriptor->PhysicalStart < Framebuffer.Base + Framebuffer.Size)) {
+        HasFramebuffer = FALSE;
+      }
     }
   }
-  HasFramebuffer = HasFramebuffer && FramebufferReserved &&
-                   ((Framebuffer.Base >= ImageBase + ImageSize) ||
-                    (Framebuffer.Base + Framebuffer.Size <= ImageBase));
 
   // Reuse the system RAM HOBs so firmware reservations stay out of the map.
   // Three additional entries cover the image, its read-only FV and QEMU MMIO.
@@ -257,6 +258,9 @@ A05ConfigureQemuMmu (
     UINT64 End  = Base + Map[Device].Length;
     if (End > ImageBase && Base < ImageBase + ImageSize) {
       return EFI_COMPROMISED_DATA;
+    }
+    if (HasFramebuffer && (Base < Framebuffer.Base + Framebuffer.Size) && (End > Framebuffer.Base)) {
+      HasFramebuffer = FALSE;
     }
 
     for (Hob.Raw = GetHobList (); !END_OF_HOB_LIST (Hob); Hob.Raw = GET_NEXT_HOB (Hob)) {

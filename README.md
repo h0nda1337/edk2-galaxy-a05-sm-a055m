@@ -87,7 +87,7 @@ En un arranque de fábrica de `A055MUBUGDZB2`, el registro `SYSTEM_LAST_KMSG` de
 
 Para verificar el traspaso con el DTB de fábrica reconstruido, ejecutar `python3 tests/check_phone_dxe_trace.py RUTA_AL_FD local/board.dtb`. La prueba comprueba la firma de instrucciones del constructor DXE en la traza de QEMU. El diagnóstico emite una marca por UART en SEC y otra en DXE antes de detenerse. Queda pendiente observar esas marcas en el teléfono.
 
-DXE también escribe franjas blancas y negras en el primer MiB del framebuffer heredado si el cargador declara el panel inicializado y la dirección y el tamaño concuerdan con una reserva del DTB. Para comprobar estas escrituras con un framebuffer sintético, ejecutar en Linux `python3 tests/check_phone_framebuffer.py RUTA_AL_FD local/board.dtb` con QEMU y `fdtput`. La prueba no emula el panel: examina el patrón en RAM con el monitor de QEMU. La visibilidad del patrón depende del estado del panel durante el arranque físico.
+DXE también escribe franjas blancas y negras en el primer MiB del framebuffer heredado si el cargador declara el panel inicializado y la dirección y el tamaño concuerdan con su reserva `no-map` del DTB. La reserva puede estar fuera de los rangos de RAM utilizable. Para comprobar las escrituras con un framebuffer sintético, ejecutar en Linux `python3 tests/check_phone_framebuffer.py RUTA_AL_FD local/board.dtb` con QEMU y `fdtput`. La prueba usa los 20 rangos de RAM no vacíos del registro de LK y examina el patrón en RAM con el monitor de QEMU. La visibilidad del patrón depende del estado del panel durante el arranque físico.
 
 ## Preparar la prueba física y la restauración
 

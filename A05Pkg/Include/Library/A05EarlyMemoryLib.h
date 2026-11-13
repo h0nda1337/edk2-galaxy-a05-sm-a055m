@@ -8,7 +8,8 @@ typedef struct {
   UINT64 Size;
 } A05_MEMORY_RANGE;
 
-#define A05_MAX_RAM_BANKS   16
+// LK can fragment the RAM map into more than 16 ranges around its reservations.
+#define A05_MAX_RAM_BANKS   32
 #define A05_MAX_EXCLUSIONS  128
 
 typedef struct {

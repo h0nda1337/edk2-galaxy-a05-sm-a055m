@@ -10,11 +10,25 @@ import subprocess
 import tempfile
 import time
 
-BASE = 0x50000000
+BASE = 0x75e50000
+SIZE = 0xfb0000
 END = 0x100000
 CANARY = 0x13579bdf
 TIMEOUT = 15
 RESERVATION = "/reserved-memory/mblock-16-framebuffer"
+# Nonempty usable ranges reported by LK in the A055MUBUGDZB2 stock boot log.
+RAM_RANGES = (
+    (0x40000000, 0xbc80000), (0x4bd00000, 0x380000),
+    (0x4c280000, 0x180000), (0x4ca00000, 0x400000),
+    (0x4ce60000, 0x1a0000), (0x4d100000, 0xf00000),
+    (0x4e000000, 0x20000000), (0x6f600000, 0xa00000),
+    (0x70910000, 0x4530000), (0x74e50000, 0x1000000),
+    (0x7ea41000, 0xbf000), (0x80000000, 0x1f900000),
+    (0x9ff00000, 0xf0000), (0xa0000000, 0x2000000),
+    (0xb2000000, 0x4b00000), (0xb6b00000, 0x9400000),
+    (0xbff40000, 0x30000), (0xbfff0000, 0xf000),
+    (0xc0000000, 0x3fc00000), (0xffc00000, 0x403ff000),
+)
 
 
 def make_fixture(source, output):
@@ -25,11 +39,15 @@ def make_fixture(source, output):
     subprocess.run(["fdtput", "-p", "-c", output, movable_pool], check=True)
     subprocess.run(["fdtput", "-t", "s", output, movable_pool, "name",
                     "zone-movable-cma-memory"], check=True)
+    ram_cells = [f"{value:x}" for address, size in RAM_RANGES
+                 for value in (address >> 32, address & 0xffffffff, size >> 32, size & 0xffffffff)]
     props = [
-        (RESERVATION, "reg", "0", f"{BASE:x}", "0", "400000"),
+        ("/memory", "reg", *ram_cells),
+        (RESERVATION, "reg", "0", f"{BASE:x}", "0", f"{SIZE:x}"),
+        (RESERVATION, "no-map"),
         ("/chosen", "atag,videolfb-fb_base_h", "0"),
         ("/chosen", "atag,videolfb-fb_base_l", f"{BASE:x}"),
-        ("/chosen", "atag,videolfb-vramSize", "400000"),
+        ("/chosen", "atag,videolfb-vramSize", f"{SIZE:x}"),
         ("/chosen", "atag,videolfb-islcm_inited", "1"),
     ]
     for prop in props:
@@ -97,7 +115,7 @@ def main():
         make_fixture(args.dtb, fixture)
         with subprocess.Popen([
             "qemu-system-aarch64", "-machine", "virt,virtualization=on",
-            "-cpu", "cortex-a53", "-m", "1024", "-display", "none", "-serial", "none",
+            "-cpu", "cortex-a53", "-m", "4096", "-display", "none", "-serial", "none",
             "-monitor", "none", "-qmp", f"unix:{endpoint},server=on,wait=off",
             "-kernel", str(args.firmware.resolve(strict=True)), "-dtb", str(fixture),
             "-device", f"loader,addr={BASE + END - 4:#x},data={CANARY:#x},data-len=4",
