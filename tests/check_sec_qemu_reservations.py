@@ -10,7 +10,7 @@ RESERVED_BASE = 0x7F000000
 RESERVED_END = 0x80000000
 BOARD_NODES = """
 / {
-    gic500@0c000000 {
+    interrupt-controller {
         compatible = "arm,gic-v3";
         reg = <0 0x0c000000 0 0x10000>, <0 0x0c080000 0 0x80000>;
     };

@@ -104,21 +104,8 @@ A05ReadPlatformMmio (
   }
 
   ZeroMem (&Detected, sizeof (Detected));
-  Status = ReadRootMmio (Fdt, "/gic500@0c000000", "arm,gic-v3", Detected.Gic,
+  Status = ReadRootMmio (Fdt, "/interrupt-controller", "arm,gic-v3", Detected.Gic,
                          A05_MAX_GIC_RANGES, &Detected.GicCount);
-  if (Status == RETURN_UNSUPPORTED) {
-    // Samsung's MT6768 tree describes separate MediaTek GIC apertures.
-    Status = ReadRootMmio (Fdt, "/gic500@0c000000", "mediatek,gic500", Detected.Gic,
-                           1, &Count);
-    if (RETURN_ERROR (Status)) {
-      return Status;
-    }
-
-    Status = ReadRootMmio (Fdt, "/gic_cpu@0c400000", "mediatek,gic_cpu",
-                           &Detected.Gic[1], 1, &Count);
-    Detected.GicCount = 2;
-  }
-
   if (RETURN_ERROR (Status)) {
     return Status;
   }

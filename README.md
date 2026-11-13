@@ -59,7 +59,7 @@ SEC entrega a DXE descriptores HOB separados para RAM disponible y reservada. La
 
 La prueba construye el mapa de traducción MMU con los HOB de RAM disponible y agrega la imagen de firmware y la ventana MMIO de QEMU. Las reservas ajenas a la imagen quedan fuera de ese mapa. La prueba de integración añade nodos sintéticos con los nombres del GIC y UART del A05 y comprueba que SEC incorpora sus rangos como memoria de dispositivo antes de llegar a BDS. Los tamaños sintéticos sirven para probar la integración con EDK II.
 
-`A05PlatformMmioLib` lee las direcciones y tamaños de `reg` y redondea los límites a páginas de 4 KiB. En el DTB de Samsung reconstruido con el overlay, los nodos `mediatek,gic500` y `mediatek,gic_cpu` describen aperturas de 4 MiB en `0x0C000000` y 256 KiB en `0x0C400000`. Ambos UART describen 4 KiB cada uno en `0x11002000` y `0x11003000`. El lector se verificó con ese árbol. La posición exacta de los redistribuidores dentro de las aperturas aún debe confirmarse.
+`A05PlatformMmioLib` lee las direcciones y tamaños de `reg` y redondea los límites a páginas de 4 KiB. En el DTB de fábrica, el nodo raíz `/interrupt-controller` (`arm,gic-v3`) describe el distribuidor en `0x0C000000` (256 KiB) y los redistribuidores en `0x0C040000` (2 MiB). Los dos UART describen 4 KiB cada uno en `0x11002000` y `0x11003000`. El lector se verificó con ese árbol. [Binding GICv3](https://www.kernel.org/doc/Documentation/devicetree/bindings/interrupt-controller/arm,gic-v3.yaml)
 
 ## Imágenes de fábrica
 
