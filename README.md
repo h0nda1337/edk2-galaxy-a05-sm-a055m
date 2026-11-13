@@ -27,4 +27,22 @@ El siguiente hito es confirmar el contrato de entrada y la memoria disponible pa
 - `python tools/inventory_adb.py` reproduce el inventario de solo lectura en `config/SM-A055M-adb.json`. Android reportó `mt6768`, SoC `MT6769V/CZ` y estado `unlocked`. Los nombres de nodos orientan la investigación de GIC, temporizador, PSCI, UART, eMMC y framebuffer. Sus propiedades de hardware siguen pendientes porque Android denegó la lectura del DTB y de los nodos consultados.
 - Quedan por confirmar el mapa de RAM y sus reservas, el estado de CPU al entrar y un canal de diagnóstico físico. La prueba AAVMF usa el firmware de QEMU.
 
-Para examinar un DTB local con device-tree-compiler instalado, ejecutar `python3 tools/inspect_dtb.py archivo.dtb`. El inspector informa regiones de memoria, reservas declaradas y propiedades de GIC, PSCI, UART y MMC. Las reservas dinámicas aparecen con dirección pendiente. La salida requiere contrastar las reservas del encabezado FDT, los overlays y los ajustes realizados por el cargador antes de construir el mapa UEFI.
+Para examinar un DTB local con device-tree-compiler instalado, ejecutar `python3 tools/inspect_dtb.py archivo.dtb`. El inspector informa regiones de memoria, reservas del encabezado FDT, nodos de memoria reservada y propiedades de GIC, PSCI, UART y MMC. Las reservas dinámicas aparecen con dirección pendiente. El mapa UEFI debe usar el DTB que entrega el cargador, con sus ajustes y overlays aplicados.
+
+## Entrada AARCH64 y memoria inicial
+
+La configuración del kernel de fábrica, leída de `/proc/config.gz` en el SM-A055M TCE con `A055MUBUGDZB2`, confirma ARM64 con páginas de 4 KiB y `CONFIG_KEXEC` y `CONFIG_KEXEC_FILE` deshabilitados. Los dos UART visibles por ADB se enlazan al controlador `mt6577-uart`.
+
+La entrada candidata usa el protocolo de arranque de Linux AARCH64, que pasa el DTB en `x0`. La referencia oficial `ArmVirtQemuKernel` llegó a DXE y BDS en QEMU mediante ese protocolo. Para repetir la compilación, usar un checkout completo de EDK II en la revisión fijada y GCC cruzado para AARCH64.
+
+```sh
+git submodule update --init
+make -C BaseTools
+. edksetup.sh
+export GCC_AARCH64_PREFIX=aarch64-linux-gnu-
+build -p ArmVirtPkg/ArmVirtQemuKernel.dsc -a AARCH64 -t GCC -b DEBUG
+qemu-system-aarch64 -machine virt,virtualization=on -cpu cortex-a53 -m 1024 \
+  -nographic -kernel Build/ArmVirtQemuKernel-AArch64/DEBUG_GCC/FV/QEMU_EFI.fd
+```
+
+`A05EarlyMemoryLib` selecciona una región alineada dentro de un banco de RAM, evitando la imagen cargada, el DTB, el initrd y las reservas estáticas que reciba como entrada. La prueba de host cubre reservas solapadas, direcciones por encima de 4 GiB, rangos desbordados y falta de espacio. La biblioteca compila para AARCH64. Su conexión a SEC y la obtención del DTB de fábrica siguen pendientes.

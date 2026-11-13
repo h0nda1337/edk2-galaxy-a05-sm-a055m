@@ -1,0 +1,14 @@
+[Defines]
+  INF_VERSION   = 0x0001001B
+  BASE_NAME     = A05EarlyMemoryLib
+  FILE_GUID     = 924F61E6-59A1-49D3-A8EA-B978CD36E855
+  MODULE_TYPE   = BASE
+  VERSION_STRING = 0.1
+  LIBRARY_CLASS = A05EarlyMemoryLib
+
+[Sources]
+  A05EarlyMemoryLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  A05Pkg/A05Pkg.dec

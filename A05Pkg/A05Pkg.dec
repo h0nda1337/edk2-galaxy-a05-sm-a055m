@@ -6,3 +6,6 @@
 
 [Includes]
   Include
+
+[LibraryClasses]
+  A05EarlyMemoryLib|Include/Library/A05EarlyMemoryLib.h
