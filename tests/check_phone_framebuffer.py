@@ -20,6 +20,11 @@ RESERVATION = "/reserved-memory/mblock-16-framebuffer"
 def make_fixture(source, output):
     shutil.copyfile(source, output)
     subprocess.run(["fdtput", "-p", "-c", output, RESERVATION], check=True)
+    # The A05's runtime tree also exposes this placeholder with only a name.
+    movable_pool = "/reserved-memory/zone-movable-cma-memory"
+    subprocess.run(["fdtput", "-p", "-c", output, movable_pool], check=True)
+    subprocess.run(["fdtput", "-t", "s", output, movable_pool, "name",
+                    "zone-movable-cma-memory"], check=True)
     props = [
         (RESERVATION, "reg", "0", f"{BASE:x}", "0", "400000"),
         ("/chosen", "atag,videolfb-fb_base_h", "0"),

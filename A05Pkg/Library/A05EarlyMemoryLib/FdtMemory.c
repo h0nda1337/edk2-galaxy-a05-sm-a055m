@@ -94,6 +94,35 @@ NodeIsEnabled (
 
 STATIC
 BOOLEAN
+IsEmptyZoneMovablePool (
+  IN CONST VOID  *Fdt,
+  IN INT32       Node
+  )
+{
+  STATIC CONST CHAR8  PoolName[] = "zone-movable-cma-memory";
+  CONST CHAR8         *Name;
+  INT32               Length;
+  INT32               Property;
+
+  // On the A05 this placeholder may be present without a memory request.
+  if ((FdtPathOffset (Fdt, "/reserved-memory/zone-movable-cma-memory") != Node) ||
+      (FdtFirstSubnode (Fdt, Node) != -FDT_ERR_NOTFOUND)) {
+    return FALSE;
+  }
+
+  Property = FdtFirstPropertyOffset (Fdt, Node);
+  if (Property == -FDT_ERR_NOTFOUND) {
+    return TRUE;
+  }
+
+  Name = FdtGetProp (Fdt, Node, "name", &Length);
+  return (Property >= 0) && (Name != NULL) && (Length == sizeof (PoolName)) &&
+         (CompareMem (Name, PoolName, sizeof (PoolName)) == 0) &&
+         (FdtNextPropertyOffset (Fdt, Property) == -FDT_ERR_NOTFOUND);
+}
+
+STATIC
+BOOLEAN
 IsDeferredA05Pool (
   IN CONST VOID  *Fdt,
   IN INT32       Node
@@ -254,6 +283,10 @@ A05ReadMemoryLayout (
           (((FdtGetProp (Fdt, Node, "reusable", NULL) != NULL) &&
             (FdtGetProp (Fdt, Node, "no-map", NULL) == NULL)) ||
            IsDeferredA05Pool (Fdt, Node))) {
+        continue;
+      }
+
+      if ((Status == RETURN_NOT_FOUND) && IsEmptyZoneMovablePool (Fdt, Node)) {
         continue;
       }
 
