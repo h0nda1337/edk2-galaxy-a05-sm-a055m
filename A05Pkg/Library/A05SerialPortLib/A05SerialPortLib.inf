@@ -1,0 +1,15 @@
+[Defines]
+  INF_VERSION = 0x0001001B
+  BASE_NAME = A05SerialPortLib
+  FILE_GUID = 68CD343C-D5E3-4551-A192-471B9D12BE53
+  MODULE_TYPE = BASE
+  LIBRARY_CLASS = SerialPortLib
+
+[Sources]
+  A05SerialPortLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  IoLib

@@ -109,7 +109,8 @@ A05ConfigureQemuMmu (
   IN UINT64  ImageBase,
   IN UINT32  ImageSize,
   IN UINT64  FvBase,
-  IN UINT32  FvSize
+  IN UINT32  FvSize,
+  IN BOOLEAN UseQemuMmio
   )
 {
   EFI_PEI_HOB_POINTERS          Hob;
@@ -121,12 +122,16 @@ A05ConfigureQemuMmu (
   EFI_STATUS                    Status;
 
   Status = A05ReadPlatformMmio (Fdt, &Mmio);
-  if (Status == EFI_NOT_FOUND) {
+  if ((Status == EFI_NOT_FOUND) && UseQemuMmio) {
     Mmio.GicCount = 0;
     Mmio.UartPresent[0] = FALSE;
     Mmio.UartPresent[1] = FALSE;
   } else if (EFI_ERROR (Status)) {
     return Status;
+  }
+
+  if (!UseQemuMmio && (!Mmio.UartPresent[0] || (Mmio.Uart[0].Base != 0x11002000))) {
+    return EFI_UNSUPPORTED;
   }
 
   Count = 0;
@@ -156,10 +161,11 @@ A05ConfigureQemuMmu (
     }
   }
 
-  // ArmVirt virt peripheral window. A phone platform supplies its own MMIO.
-  Map[Index++] = (ARM_MEMORY_REGION_DESCRIPTOR) {
-    0x08000000, 0x08000000, 0x08000000, ARM_MEMORY_REGION_ATTRIBUTE_DEVICE
-  };
+  if (UseQemuMmio) {
+    Map[Index++] = (ARM_MEMORY_REGION_DESCRIPTOR) {
+      0x08000000, 0x08000000, 0x08000000, ARM_MEMORY_REGION_ATTRIBUTE_DEVICE
+    };
+  }
   for (Device = 0; Device < Mmio.GicCount; Device++) {
     Map[Index++] = (ARM_MEMORY_REGION_DESCRIPTOR) {
       Mmio.Gic[Device].Base, Mmio.Gic[Device].Base, Mmio.Gic[Device].Size,
@@ -177,7 +183,7 @@ A05ConfigureQemuMmu (
   }
 
   // Reject DT apertures that would change the attributes of actual DRAM.
-  for (Device = Count + 1; Device < Index; Device++) {
+  for (Device = Count + (UseQemuMmio ? 1 : 0); Device < Index; Device++) {
     UINT64 Base = Map[Device].PhysicalBase;
     UINT64 End  = Base + Map[Device].Length;
     if (End > ImageBase && Base < ImageBase + ImageSize) {

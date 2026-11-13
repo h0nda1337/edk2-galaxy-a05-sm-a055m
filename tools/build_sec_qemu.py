@@ -1,4 +1,4 @@
-"""Build the QEMU integration of the A05 SEC memory selector against pinned EDK II."""
+"""Build the A05 SEC integration or its QEMU validation image against pinned EDK II."""
 
 import argparse
 import json
@@ -13,7 +13,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--edk2", type=Path, required=True, help="Full, clean upstream checkout with initialized submodules.")
     parser.add_argument("--jobs", type=int, default=4)
-    parser.add_argument("--workspace", type=Path, default=ROOT / "build" / "sec-qemu")
+    parser.add_argument("--workspace", type=Path)
+    parser.add_argument("--phone", action="store_true", help="Build the Galaxy A05 SEC-to-DXE diagnostic image.")
     args = parser.parse_args()
     edk2 = args.edk2.resolve(strict=True)
     lock = json.loads((ROOT / "sources.lock.json").read_text(encoding="utf-8"))["edk2"]
@@ -30,7 +31,7 @@ def main():
 
     # Generate a disposable workspace overlay. Resolve imports against upstream
     # with PACKAGES_PATH; the build does not edit tracked upstream files.
-    workspace = args.workspace.resolve()
+    workspace = (args.workspace or ROOT / "build" / ("sec-phone" if args.phone else "sec-qemu")).resolve()
     prepi = workspace / "ArmVirtPkg" / "PrePi"
     prepi.mkdir(parents=True, exist_ok=True)
     upstream = edk2 / "ArmVirtPkg"
@@ -79,7 +80,7 @@ def main():
         main_source.read_text(encoding="utf-8"), '#include "PrePi.h"\n',
         '#include "PrePi.h"\n\n'
         "EFI_STATUS EFIAPI A05BuildMemoryHobs (CONST VOID *Fdt, UINT64 ImageBase, UINT32 ImageSize);\n"
-        "EFI_STATUS EFIAPI A05ConfigureQemuMmu (CONST VOID *Fdt, UINT64 ImageBase, UINT32 ImageSize, UINT64 FvBase, UINT32 FvSize);\n"
+        "EFI_STATUS EFIAPI A05ConfigureQemuMmu (CONST VOID *Fdt, UINT64 ImageBase, UINT32 ImageSize, UINT64 FvBase, UINT32 FvSize, BOOLEAN UseQemuMmio);\n"
         "VOID BuildMemoryTypeInformationHob (VOID);\n",
     )
     content = rewrite(
@@ -93,7 +94,8 @@ def main():
         "  }\n"
         "  Status = A05ConfigureQemuMmu ((CONST VOID *)(UINTN)PcdGet64 (PcdDeviceTreeInitialBaseAddress),\n"
         "                               PcdGet64 (PcdFdBaseAddress), PcdGet32 (PcdFdSize),\n"
-        "                               PcdGet64 (PcdFvBaseAddress), PcdGet32 (PcdFvSize));\n"
+        "                               PcdGet64 (PcdFvBaseAddress), PcdGet32 (PcdFvSize), "
+        + ("FALSE" if args.phone else "TRUE") + ");\n"
         "  if (EFI_ERROR (Status)) {\n"
         "    CpuDeadLoop ();\n"
         "  }\n"
@@ -107,6 +109,11 @@ def main():
         "  SerialPortInitialize ();\n"
         '  DEBUG ((DEBUG_INFO, "A05 SEC pool base: 0x%Lx\\n", (UINT64)UefiMemoryBase));\n',
     )
+    if args.phone:
+        content = rewrite(content, "  Status = PlatformPeim ();\n  ASSERT_EFI_ERROR (Status);\n",
+                          "  BuildFvHob (PcdGet64 (PcdFvBaseAddress), PcdGet32 (PcdFvSize));\n")
+        content = rewrite(content, "  ASSERT_EFI_ERROR (Status);\n}\n",
+                          "  if (EFI_ERROR (Status)) {\n    CpuDeadLoop ();\n  }\n}\n")
     main_source.write_text(content, encoding="utf-8")
 
     # Keep the same package-relative paths for the FDF and its local includes.
@@ -122,6 +129,30 @@ def main():
                       "[LibraryClasses.common]\n"
                       "  A05EarlyMemoryLib|A05Pkg/Library/A05EarlyMemoryLib/A05EarlyMemoryLib.inf\n"
                       "  A05PlatformMmioLib|A05Pkg/Library/A05PlatformMmioLib/A05PlatformMmioLib.inf\n")
+    if args.phone:
+        shared_dsc = workspace / "ArmVirtPkg" / "A05Phone.dsc.inc"
+        shared = (upstream / "ArmVirt.dsc.inc").read_text(encoding="utf-8")
+        content = rewrite(content, "!include ArmVirtPkg/ArmVirt.dsc.inc",
+                          "!include ArmVirtPkg/A05Phone.dsc.inc")
+        shared = rewrite(shared, "  DebugLib|ArmVirtPkg/Library/DebugLibFdtPL011Uart/DebugLibFdtPL011UartRam.inf",
+                         "  DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf")
+        shared = rewrite(shared, "  SerialPortLib|ArmVirtPkg/Library/FdtPL011SerialPortLib/FdtPL011SerialPortLib.inf",
+                         "  SerialPortLib|MdePkg/Library/BaseSerialPortLibNull/BaseSerialPortLibNull.inf")
+        core = "  MdeModulePkg/Core/Dxe/DxeMain.inf"
+        # The core runs the diagnostic constructor before driver dispatch.
+        shared = rewrite(shared, core + " {\n    <LibraryClasses>\n",
+                          core + " {\n"
+                          "    <LibraryClasses>\n"
+                          "      DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf\n"
+                          "      SerialPortLib|A05Pkg/Library/A05SerialPortLib/A05SerialPortLib.inf\n"
+                          "      NULL|A05Pkg/Drivers/A05Dxe/A05Dxe.inf\n")
+        shared_dsc.write_text(shared, encoding="utf-8")
+        content = rewrite(content, "  ArmVirtPkg/PrePi/ArmVirtPrePiUniCoreRelocatable.inf {\n"
+                                   "    <LibraryClasses>\n",
+                          "  ArmVirtPkg/PrePi/ArmVirtPrePiUniCoreRelocatable.inf {\n"
+                          "    <LibraryClasses>\n"
+                          "      SerialPortLib|MdePkg/Library/BaseSerialPortLibNull/BaseSerialPortLibNull.inf\n"
+                          "      DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf\n")
     dsc.write_text(content, encoding="utf-8")
 
     fdf = workspace / "ArmVirtPkg" / "ArmVirtQemuKernel.fdf"
@@ -136,6 +167,17 @@ def main():
         ("round it up to 32 KB", "round it up to 512 KiB"),
     ):
         content = rewrite(content, old, new)
+    if args.phone:
+        content = rewrite(content, "[FD.QEMU_EFI]", "[FD.GALAXY_A05]")
+        fv_main = workspace / "ArmVirtPkg" / "ArmVirtQemuFvMain.fdf.inc"
+        headers = fv_main.read_text(encoding="utf-8").split("  INF ", 1)[0]
+        fv_main.write_text(
+            headers + "  INF MdeModulePkg/Core/Dxe/DxeMain.inf\n"
+                      "  INF MdeModulePkg/Universal/PCD/Dxe/Pcd.inf\n"
+                      "  INF ArmPkg/Drivers/CpuDxe/CpuDxe.inf\n"
+                      "  INF MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf\n",
+            encoding="utf-8",
+        )
     fdf.write_text(content, encoding="utf-8")
 
     env = os.environ.copy()
@@ -149,7 +191,8 @@ def main():
          "build-sec-qemu", edk2, str(args.jobs)],
         cwd=workspace, env=env, check=True,
     )
-    print(workspace / "Build/ArmVirtQemuKernel-AArch64/DEBUG_GCC/FV/QEMU_EFI.fd")
+    image = "GALAXY_A05.fd" if args.phone else "QEMU_EFI.fd"
+    print(workspace / "Build/ArmVirtQemuKernel-AArch64/DEBUG_GCC/FV" / image)
 
 
 if __name__ == "__main__":

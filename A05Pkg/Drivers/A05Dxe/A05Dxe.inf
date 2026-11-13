@@ -1,0 +1,16 @@
+[Defines]
+  INF_VERSION = 0x0001001B
+  BASE_NAME = A05Dxe
+  FILE_GUID = 56A9C7B0-CBF5-4D2B-AB37-FB62E0FE86B8
+  MODULE_TYPE = DXE_CORE
+  LIBRARY_CLASS = NULL|DXE_CORE
+  CONSTRUCTOR = A05DxeEntry
+
+[Sources]
+  A05Dxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  SerialPortLib
