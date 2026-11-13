@@ -19,7 +19,7 @@ Si el enlazador ELF de Windows falla, se puede usar `--wsl-elf-linker Debian` co
 - Código propio del proyecto en `A05Pkg`, `tools` y `tests`. El proyecto se desarrolla sin BootShim. La procedencia de los drivers se documentará al incorporarlos.
 - [Samsung Open Source Release Center](https://opensource.samsung.com/), fuente prevista para contrastar la descripción de la placa con el firmware de fábrica.
 
-El siguiente hito es confirmar el contrato de entrada y la memoria disponible para implementar SEC y el traspaso a DXE. El perfil actual mantiene indeterminados los parámetros de carga del teléfono.
+El código de la placa ya llega a DXE en QEMU. El siguiente hito es verificar en el teléfono el contrato de entrada del cargador de Samsung y observar una marca de diagnóstico.
 
 ## Validación
 
@@ -86,3 +86,17 @@ El árbol reconstruido tiene SHA-256 `1d516a1d2e887fa6a72bf44f1fab9fa4d317964cc8
 Para verificar el traspaso con el DTB de fábrica reconstruido, ejecutar `python3 tests/check_phone_dxe_trace.py RUTA_AL_FD local/board.dtb`. La prueba comprueba la firma de instrucciones del constructor DXE en la traza de QEMU. El diagnóstico emite una marca por UART en SEC y otra en DXE antes de detenerse. Queda pendiente observar esas marcas en el teléfono.
 
 DXE también escribe franjas blancas y negras en el primer MiB del framebuffer heredado si el cargador declara el panel inicializado y la dirección y el tamaño concuerdan con una reserva del DTB. En QEMU se verificaron las escrituras con un framebuffer sintético. La visibilidad del patrón depende del estado del panel durante el arranque físico.
+
+## Preparar la prueba física y la restauración
+
+Antes de cambiar `boot`, confirmar con ADB el modelo `SM-A055M`, el estado `unlocked` y la versión instalada con `adb shell getprop ro.build.PDA`. Extraer el `boot.img` original del AP correspondiente a esa versión y preparar ambos paquetes antes de entrar a Download Mode:
+
+```sh
+python tools/package_boot_v4.py --stock-boot local/stock/boot.img --firmware RUTA_AL_FD --output local/boot-lab.img
+python tools/package_boot_tar.py --boot local/boot-lab.img --output local/AP-lab-boot.tar
+python tools/package_boot_tar.py --boot local/stock/boot.img --output local/AP-stock-boot.tar
+```
+
+Cada TAR contiene solo `boot.img`. Usar exclusivamente la ranura AP, con el resto de ranuras vacías y sin reparticionar ni borrar el almacenamiento. Confirmar que se puede regresar a Download Mode mediante los botones antes de instalar la imagen de diagnóstico. Para restaurar, cargar el TAR original del mismo modo y verificar con ADB que Android termine de arrancar (`sys.boot_completed=1`) y reporte la versión esperada. El SHA-256 del `boot.img` original de la unidad de prueba TCE (`A055MUBUGDZB2`) es `40b8e6d688dcaaf1414ff9777e89cbfb2f19241d79be56970cd4246ad9be84d4`. Mantener los archivos de fábrica y los TAR fuera del repositorio.
+
+Registrar por separado el resultado de la escritura, lo observado en el teléfono y el arranque de Android tras la restauración. Un resultado exitoso de la herramienta de flasheo solo confirma la escritura. La ausencia de franjas tampoco descarta el arranque del firmware si el cargador no deja el panel inicializado.

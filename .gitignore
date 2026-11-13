@@ -12,3 +12,6 @@ __pycache__/
 *.fd
 *.fv
 *.log
+*.img
+*.tar
+*.tar.md5
