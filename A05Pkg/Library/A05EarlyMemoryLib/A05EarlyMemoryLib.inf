@@ -8,7 +8,12 @@
 
 [Sources]
   A05EarlyMemoryLib.c
+  FdtMemory.c
 
 [Packages]
   MdePkg/MdePkg.dec
   A05Pkg/A05Pkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  FdtLib

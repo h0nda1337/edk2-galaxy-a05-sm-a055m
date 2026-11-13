@@ -45,4 +45,4 @@ qemu-system-aarch64 -machine virt,virtualization=on -cpu cortex-a53 -m 1024 \
   -nographic -kernel Build/ArmVirtQemuKernel-AArch64/DEBUG_GCC/FV/QEMU_EFI.fd
 ```
 
-`A05EarlyMemoryLib` selecciona una región alineada dentro de un banco de RAM, evitando la imagen cargada, el DTB, el initrd y las reservas estáticas que reciba como entrada. La prueba de host cubre reservas solapadas, direcciones por encima de 4 GiB, rangos desbordados y falta de espacio. La biblioteca compila para AARCH64. Su conexión a SEC y la obtención del DTB de fábrica siguen pendientes.
+`A05EarlyMemoryLib` selecciona una región alineada dentro de un banco de RAM. Lee los bancos, las reservas del encabezado y los nodos `reserved-memory` del DTB que recibe del cargador. También excluye la imagen cargada, el DTB y el initrd. La prueba de host cubre reservas solapadas, direcciones por encima de 4 GiB, rangos desbordados y falta de espacio. La lectura del DTB se verificó con un árbol sintético que contiene dos bancos, reservas y un initrd. La biblioteca compila para AARCH64. Su conexión a SEC y la obtención del DTB de fábrica siguen pendientes.

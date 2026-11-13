@@ -25,4 +25,18 @@ A05SelectEarlyMemory (
   OUT A05_MEMORY_RANGE       *Selected
   );
 
+/**
+  Select scratch RAM from the DTB passed in the Linux AARCH64 handoff.
+  The loader must have made the DTB readable at its physical address.
+  Dynamic reusable pools can be allocated later by the OS.
+**/
+RETURN_STATUS
+EFIAPI
+A05SelectEarlyMemoryFromFdt (
+  IN CONST VOID              *Fdt,
+  IN CONST A05_MEMORY_RANGE  *Image,
+  IN UINT64                   Size,
+  OUT A05_MEMORY_RANGE       *Selected
+  );
+
 #endif
