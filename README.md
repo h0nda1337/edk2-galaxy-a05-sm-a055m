@@ -20,3 +20,9 @@ Si el enlazador ELF de Windows falla, se puede usar `--wsl-elf-linker Debian` co
 - [Samsung Open Source Release Center](https://opensource.samsung.com/), fuente prevista para contrastar la descripción de la placa con el firmware de fábrica.
 
 El siguiente hito es confirmar el contrato de entrada y la memoria disponible para implementar SEC y el traspaso a DXE. El perfil actual mantiene indeterminados los parámetros de carga del teléfono.
+
+## Validación
+
+- Las cuatro sondas pasaron en QEMU virt. AAVMF cargó `A05Bringup.efi` como `EFI/BOOT/BOOTAA64.EFI` en QEMU AARCH64 e imprimió `A05 UEFI bring-up: application entry reached.`
+- `python tools/inventory_adb.py` reproduce el inventario de solo lectura en `config/SM-A055M-adb.json`. Android reportó `mt6768`, SoC `MT6769V/CZ` y estado `unlocked`. Los nombres de nodos orientan la investigación de GIC, temporizador, PSCI, UART, eMMC y framebuffer. Sus propiedades de hardware siguen pendientes porque Android denegó la lectura del DTB y de los nodos consultados.
+- Quedan por confirmar el mapa de RAM y sus reservas, el estado de CPU al entrar y un canal de diagnóstico físico. La prueba AAVMF usa el firmware de QEMU.

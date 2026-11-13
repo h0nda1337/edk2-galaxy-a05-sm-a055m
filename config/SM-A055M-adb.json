@@ -1,0 +1,30 @@
+{
+  "model": "SM-A055M",
+  "device": "a05m",
+  "platform": "mt6768",
+  "soc_model": "MT6769V/CZ",
+  "android": "15",
+  "firmware": "A055MUBUGDZB2",
+  "vbmeta_device_state": "unlocked",
+  "verified_boot_state": "orange",
+  "flash_locked": "0",
+  "kernel_architecture": "aarch64",
+  "visible_device_tree_nodes": [
+    "memory",
+    "reserved-memory",
+    "gic500@0c000000",
+    "timer",
+    "psci",
+    "serial@11002000",
+    "serial@11003000",
+    "mmc@11230000",
+    "mmc@11240000",
+    "reserved-memory/mblock-16-framebuffer"
+  ],
+  "visible_partition_links": [
+    "boot",
+    "vendor_boot",
+    "dtbo"
+  ],
+  "live_fdt_readable": false
+}
