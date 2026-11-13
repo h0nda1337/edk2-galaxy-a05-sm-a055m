@@ -85,7 +85,7 @@ El árbol reconstruido tiene SHA-256 `1d516a1d2e887fa6a72bf44f1fab9fa4d317964cc8
 
 Para verificar el traspaso con el DTB de fábrica reconstruido, ejecutar `python3 tests/check_phone_dxe_trace.py RUTA_AL_FD local/board.dtb`. La prueba comprueba la firma de instrucciones del constructor DXE en la traza de QEMU. El diagnóstico emite una marca por UART en SEC y otra en DXE antes de detenerse. Queda pendiente observar esas marcas en el teléfono.
 
-DXE también escribe franjas blancas y negras en el primer MiB del framebuffer heredado si el cargador declara el panel inicializado y la dirección y el tamaño concuerdan con una reserva del DTB. En QEMU se verificaron las escrituras con un framebuffer sintético. La visibilidad del patrón depende del estado del panel durante el arranque físico.
+DXE también escribe franjas blancas y negras en el primer MiB del framebuffer heredado si el cargador declara el panel inicializado y la dirección y el tamaño concuerdan con una reserva del DTB. Para comprobar estas escrituras con un framebuffer sintético, ejecutar en Linux `python3 tests/check_phone_framebuffer.py RUTA_AL_FD local/board.dtb` con QEMU y `fdtput`. La prueba no emula el panel: examina el patrón en RAM con el monitor de QEMU. La visibilidad del patrón depende del estado del panel durante el arranque físico.
 
 ## Preparar la prueba física y la restauración
 
