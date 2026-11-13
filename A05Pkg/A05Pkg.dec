@@ -9,3 +9,4 @@
 
 [LibraryClasses]
   A05EarlyMemoryLib|Include/Library/A05EarlyMemoryLib.h
+  A05PlatformMmioLib|Include/Library/A05PlatformMmioLib.h

@@ -1,0 +1,18 @@
+[Defines]
+  INF_VERSION    = 0x0001001B
+  BASE_NAME      = A05PlatformMmioLib
+  FILE_GUID      = C8C8CBF7-98F1-41E9-A470-2433BAA3A8AA
+  MODULE_TYPE    = BASE
+  VERSION_STRING = 0.1
+  LIBRARY_CLASS  = A05PlatformMmioLib
+
+[Sources]
+  A05PlatformMmioLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  A05Pkg/A05Pkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  FdtLib
