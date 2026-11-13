@@ -93,6 +93,41 @@ NodeIsEnabled (
 }
 
 STATIC
+BOOLEAN
+IsDeferredA05Pool (
+  IN CONST VOID  *Fdt,
+  IN INT32       Node
+  )
+{
+  STATIC CONST CHAR8 *CONST Paths[] = {
+    "/reserved-memory/reserve-memory-sspm_share",
+    "/reserved-memory/reserve-memory-scp_share",
+    "/reserved-memory/ion-carveout-heap",
+    "/reserved-memory/consys-reserve-memory",
+    "/reserved-memory/wifi-reserve-memory"
+  };
+  CONST CHAR8  *Compatible;
+  INT32        Bytes;
+  UINTN        Index;
+
+  // These size-only requests have no physical allocation in the handoff.
+  // Keep static reg entries and the FDT reservation map authoritative.
+  Compatible = FdtGetProp (Fdt, 0, "compatible", &Bytes);
+  if ((Compatible == NULL) || (Bytes <= 0) ||
+      (FdtStringListContains (Compatible, Bytes, "mediatek,MT6768") != 1)) {
+    return FALSE;
+  }
+
+  for (Index = 0; Index < ARRAY_SIZE (Paths); Index++) {
+    if (FdtPathOffset (Fdt, Paths[Index]) == Node) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+STATIC
 RETURN_STATUS
 ReadInitrd (
   IN CONST VOID          *Fdt,
@@ -215,9 +250,10 @@ A05ReadMemoryLayout (
 
       Status = ReadRanges (Fdt, Reserved, Node, Excluded, &ExcludedCount, A05_MAX_EXCLUSIONS - 1);
       if ((Status == RETURN_NOT_FOUND) &&
-          (FdtGetProp (Fdt, Node, "reusable", NULL) != NULL) &&
           (FdtGetProp (Fdt, Node, "size", NULL) != NULL) &&
-          (FdtGetProp (Fdt, Node, "no-map", NULL) == NULL)) {
+          (((FdtGetProp (Fdt, Node, "reusable", NULL) != NULL) &&
+            (FdtGetProp (Fdt, Node, "no-map", NULL) == NULL)) ||
+           IsDeferredA05Pool (Fdt, Node))) {
         continue;
       }
 
