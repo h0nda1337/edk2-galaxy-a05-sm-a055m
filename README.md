@@ -64,3 +64,5 @@ La prueba construye el mapa de traducción MMU con los HOB de RAM disponible y a
 ## Imágenes de fábrica
 
 Con Python 3.11 o posterior y `lz4`, `python tools/extract_stock_ap.py AP_FIRMWARE.tar.md5 local/stock` extrae `boot.img`, `vendor_boot.img`, `dtbo.img` y las demás imágenes de arranque presentes. También acepta el ZIP que contiene el AP. El script comprueba los formatos y guarda los tamaños y SHA-256 en `manifest.json`. Mantener estos archivos en almacenamiento local. Usar `unpack_bootimg.py` de AOSP para extraer el DTB de `vendor_boot.img`. [Herramienta oficial de AOSP](https://android.googlesource.com/platform/system/tools/mkbootimg/+/refs/heads/main/unpack_bootimg.py)
+
+Si `vendor_boot` contiene varios árboles concatenados, `python tools/split_vendor_dtbs.py local/unpacked/dtb local/stock-dtbs` extrae cada árbol e informa su desplazamiento y SHA-256. Inspeccionar cada candidato con `inspect_dtb.py`. La selección del árbol y sus overlays depende de la variante de placa y del cargador de Samsung.
