@@ -1,0 +1,8 @@
+[Defines]
+  DEC_SPECIFICATION              = 0x0001001B
+  PACKAGE_NAME                   = A05Pkg
+  PACKAGE_GUID                   = 2317F8A0-5AC7-4C1A-A9A4-6D0B6AB71041
+  PACKAGE_VERSION                = 0.1
+
+[Includes]
+  Include

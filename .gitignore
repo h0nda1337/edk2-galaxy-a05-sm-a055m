@@ -1,0 +1,14 @@
+build/
+vendor/
+local/
+__pycache__/
+*.pyc
+*.bin
+*.elf
+*.o
+*.obj
+*.efi
+*.map
+*.fd
+*.fv
+*.log

@@ -1,0 +1,23 @@
+{
+  "model": "SM-A055M",
+  "build_number": "AP3A.240905.015.A2.A055MUBUGDZB2",
+  "firmware_revision": "A055MUBUGDZB2",
+  "binary_reported": "G / 16",
+  "ram_reported_gb": 4.0,
+  "ram_report_source": "owner: 2.2 used of 4.0 GB; RAM Plus excluded",
+  "soc_hwcode_observed": "0x0707",
+  "dram_base": null,
+  "dram_usable_ranges": [],
+  "reserved_ranges": [],
+  "entry_architecture": null,
+  "entry_exception_level": null,
+  "entry_instruction_set": null,
+  "entry_calling_convention": null,
+  "return_to_loader_supported": null,
+  "probe_load_address": null,
+  "report_buffer_address": null,
+  "observation_channel": null,
+  "hardware_probe_validated": false,
+  "bootloader_unlock_requested": false,
+  "persistent_boot_validated": false
+}

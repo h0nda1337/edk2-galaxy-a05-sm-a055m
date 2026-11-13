@@ -1,0 +1,17 @@
+[Defines]
+  INF_VERSION                    = 0x0001001B
+  BASE_NAME                      = A05Bringup
+  FILE_GUID                      = 7E1D4708-A824-4D2D-8F42-21D53B2B9F51
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 0.1
+  ENTRY_POINT                    = UefiMain
+
+[Sources]
+  Bringup.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  A05Pkg/A05Pkg.dec
+
+[LibraryClasses]
+  UefiApplicationEntryPoint

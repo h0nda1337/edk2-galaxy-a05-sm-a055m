@@ -1,0 +1,19 @@
+{
+  "policy": "Own code, code from the owner GitHub, or official upstream/vendor code. Third-party drivers are permitted with documented provenance.",
+  "edk2": {
+    "url": "https://github.com/tianocore/edk2.git",
+    "tag": "edk2-stable202608",
+    "commit": "2970e5699ba6267f3384ffab20f96647578aebc8",
+    "modified": false
+  },
+  "samsung_kernel": {
+    "official_portal": "https://opensource.samsung.com/",
+    "model": "SM-A055M",
+    "firmware": "A055MUBUGDZB2",
+    "archive": null,
+    "sha256": null,
+    "status": "exact official source archive not imported yet"
+  },
+  "external_uefi_ports": [],
+  "external_bootshim": false
+}
